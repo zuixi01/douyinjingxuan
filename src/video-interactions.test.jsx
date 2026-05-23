@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { DOUBLE_TAP_DELAY, VideoPlayerSurface } from "../douyin_featured_ui_demo.jsx";
+import App, { DOUBLE_TAP_DELAY, VideoPlayerSurface } from "../douyin_featured_ui_demo.jsx";
 
 const SAMPLE_ITEM = {
   id: "ai-workflow",
@@ -157,6 +157,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -280,5 +281,32 @@ describe("VideoPlayerSurface", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "退出" }));
     expect(screen.getByRole("button", { name: "横屏" })).toBeTruthy();
+  });
+
+  it("首页单击推荐卡片会进入视频页", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByText(/奶茶为什么越来越贵/));
+
+    await act(async () => {
+      vi.advanceTimersByTime(DOUBLE_TAP_DELAY + 20);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("合集：经济专题")).toBeTruthy();
+  });
+
+  it("个人页点击 AI笔记 会进入知识库管理页", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+    fireEvent.click(screen.getByRole("button", { name: /AI笔记/ }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("知识库管理")).toBeTruthy();
+    expect(screen.getByText("我的分区")).toBeTruthy();
   });
 });
