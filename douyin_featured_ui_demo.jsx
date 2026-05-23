@@ -490,148 +490,134 @@ function ProgressiveText({ text, progress, className = "" }) {
 
 function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
   if (!item) return null;
-  const draft = getArticleDraft(item.id);
-  const [visibleStage, setVisibleStage] = useState(0);
-  const [visibleThemeCount, setVisibleThemeCount] = useState(0);
-  const [visibleBlogLines, setVisibleBlogLines] = useState(1);
-  const [typeProgress, setTypeProgress] = useState(0);
+  const [visibleTimestamps, setVisibleTimestamps] = useState(1);
+  const [visibleKnowledge, setVisibleKnowledge] = useState(0);
 
   useEffect(() => {
-    setVisibleStage(0);
-    setVisibleThemeCount(0);
-    setVisibleBlogLines(1);
-    setTypeProgress(0);
+    setVisibleTimestamps(1);
+    setVisibleKnowledge(0);
     const timers = [
-      window.setTimeout(() => setVisibleStage(1), 260),
-      window.setTimeout(() => setVisibleThemeCount(1), 820),
-      window.setTimeout(() => setVisibleBlogLines(2), 1300),
-      window.setTimeout(() => setVisibleBlogLines(3), 1750),
-      window.setTimeout(() => setTypeProgress(1), 2300),
+      window.setTimeout(() => setVisibleTimestamps(2), 300),
+      window.setTimeout(() => setVisibleTimestamps(3), 600),
+      window.setTimeout(() => setVisibleTimestamps(4), 900),
+      window.setTimeout(() => setVisibleKnowledge(1), 1200),
+      window.setTimeout(() => setVisibleKnowledge(2), 1500),
+      window.setTimeout(() => setVisibleKnowledge(3), 1800),
     ];
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [item.id]);
 
-  const stageText = [
-    "正在读取缓存中的解析稿…",
-    "正在拆分时间戳与主题小节…",
-    "正在展开 Blog 预览…",
-  ];
-  const blogBlocks = [
-    {
-      title: "Title / Author / URL",
-      content: draft?.meta
-        ? `${draft.meta.title}\n@${draft.meta.author}\n${draft.meta.url || `/${item.id}`}`
-        : `${item.title}\n@${item.author}\n/${item.id}`,
-    },
-    {
-      title: "一句核心结论",
-      content: draft?.coreConclusion || item.ai.summary[0],
-    },
-    {
-      title: "主题小节",
-      content: draft?.themeSections?.[0]?.paragraphs?.slice(0, 3).join("\n\n") || item.ai.summary.slice(0, 3).join("\n\n"),
-    },
-    {
-      title: "抽象框架",
-      content: draft?.frameworkSection?.paragraphs?.slice(0, 3).join("\n\n") || item.ai.summary.slice(0, 2).join("\n\n"),
-    },
-  ];
-
-  const currentStageText = visibleStage >= 1
-    ? visibleStage >= 3 ? stageText[2] : visibleStage >= 2 ? stageText[1] : stageText[0]
-    : stageText[0];
+  // 将时间戳转换为时间段格式
+  const timeRanges = item.ai.timestamps.map((stamp, index, arr) => {
+    const nextTime = index < arr.length - 1 ? arr[index + 1].time : item.time;
+    return {
+      ...stamp,
+      range: `${stamp.time} - ${nextTime}`,
+    };
+  });
 
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end bg-black/40 backdrop-blur-sm" onClick={onClose}>
         <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }} onClick={(event) => event.stopPropagation()} className="max-h-[92vh] w-full overflow-hidden rounded-t-[28px] bg-white shadow-2xl">
           {/* Header */}
-          <div className={`relative overflow-hidden px-5 pb-5 pt-4 text-white ${item.bg}`}>
-            <div className="absolute inset-0 bg-black/30" />
-            <div className="relative flex items-start justify-between">
+          <div className="relative border-b border-zinc-100 bg-white px-5 pb-4 pt-5">
+            <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-8">
-                <h2 className="text-[20px] font-bold leading-snug tracking-tight">{item.title}</h2>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-medium backdrop-blur-sm">@{item.author}</span>
-                  <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-medium backdrop-blur-sm">原视频 {item.time}</span>
+                <h2 className="text-[22px] font-black text-zinc-950">AI Summary</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-700">@{item.author}</span>
+                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-700">原视频 {item.time}</span>
                 </div>
               </div>
-              <button onClick={onClose} className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition-all duration-200 hover:bg-white/30 active:scale-90">
-                <X size={14} />
+              <button onClick={onClose} className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 transition-all duration-200 hover:bg-zinc-200 active:scale-90">
+                <X size={18} className="text-zinc-600" />
               </button>
             </div>
           </div>
 
           {/* Scrollable content */}
-          <div className="max-h-[calc(92vh-160px)] overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
-            {/* Streaming parsing section */}
-            <section className="mb-3 rounded-2xl bg-zinc-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
-                <Loader2 size={15} className="animate-spin text-blue-500" />
-                流式解析演示
+          <div className="max-h-[calc(92vh-140px)] overflow-y-auto px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5">
+            {/* Content Timeline section */}
+            <section className="mb-6">
+              <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-zinc-950">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500">
+                  <div className="h-2 w-2 rounded-full bg-white" />
+                </div>
+                内容时间轴
               </div>
-              <div className="mt-2 text-[12px] leading-relaxed text-zinc-500">
-                {visibleStage < 3 ? (
-                  <span className="inline-flex items-center gap-1">
-                    {currentStageText}
-                    <span className="animate-pulse">…</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-emerald-600">
-                    <CheckCircle2 size={12} />
-                    解析完成
-                  </span>
-                )}
-              </div>
-            </section>
-
-            {/* Timestamps section */}
-            <section className="mb-3">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
-                <Sparkles size={15} className="text-blue-500" />
-                时间戳优先
-              </div>
-              <div className="space-y-1.5">
-                {item.ai.timestamps.slice(0, Math.max(1, visibleThemeCount + 1)).map((stamp, index) => (
-                  <TimestampCard key={stamp.time} stamp={stamp} active={index === 0} onJump={(time) => onJump(item, time)} />
+              <div className="space-y-2">
+                {timeRanges.slice(0, visibleTimestamps).map((stamp, index) => (
+                  <motion.button
+                    key={stamp.time}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    onClick={() => onJump(item, stamp.time)}
+                    className="group flex w-full items-start gap-3 rounded-xl bg-zinc-50 px-4 py-3.5 text-left transition-all duration-200 hover:bg-zinc-100 active:scale-[0.99]"
+                  >
+                    <div className="flex-shrink-0 pt-0.5">
+                      <div className="text-[14px] font-bold tabular-nums text-blue-600">{stamp.range}</div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[14px] font-medium leading-snug text-zinc-900">{stamp.label}</div>
+                    </div>
+                    <ChevronRight size={18} className="mt-0.5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </motion.button>
                 ))}
               </div>
+              {visibleTimestamps < timeRanges.length && (
+                <div className="mt-3 text-center">
+                  <div className="inline-flex items-center gap-2 text-xs text-zinc-400">
+                    <Loader2 size={12} className="animate-spin" />
+                    加载中...
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                <span className="font-semibold">可跳转片段</span>
+                <span className="ml-1 text-blue-600/80">点击时间戳，直接回到视频对应片段，先看局部再看整体。</span>
+              </div>
             </section>
 
-            {/* Tip */}
-            <div className="mb-3 flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2.5">
-              <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-500">
-                <span className="text-[9px] font-bold text-white">!</span>
-              </div>
-              <div>
-                <div className="text-[12px] font-semibold text-blue-700">可跳转片段</div>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-blue-600/70">点击时间戳，直接回到视频对应片段，先看局部再看整体。</p>
-              </div>
-            </div>
-
-            {/* Blog preview */}
-            <section className="mb-3">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
-                <Clock3 size={15} className="text-violet-500" />
-                Blog 预览
-              </div>
-              <div className="rounded-2xl bg-zinc-50 p-4">
+            {/* Core Knowledge Points section */}
+            {item.ai.infographic && item.ai.infographic.length > 0 && (
+              <section className="mb-6">
+                <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-zinc-950">
+                  <Lightbulb size={20} className="text-amber-500" />
+                  核心知识点详解
+                </div>
                 <div className="space-y-3">
-                  {blogBlocks.slice(0, visibleBlogLines).map((block) => (
-                    <div key={block.title}>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{block.title}</div>
-                      <ProgressiveText text={block.content} progress={typeProgress} className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-zinc-700" />
-                    </div>
+                  {item.ai.infographic.slice(0, visibleKnowledge).map((point, index) => (
+                    <motion.div
+                      key={point.title}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="rounded-xl bg-white p-4 ring-1 ring-zinc-200"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
+                          <Sparkles size={20} className="text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[15px] font-bold text-zinc-950">{point.title}</div>
+                          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-600">{point.text}</p>
+                        </div>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
-            </section>
-
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <button onClick={() => onOpenVideo(item)} className="rounded-2xl bg-zinc-900 py-3.5 text-[13px] font-bold text-white transition-all duration-200 hover:bg-zinc-800 active:scale-[0.98]">进入视频页</button>
-              <button onClick={() => onOpenSave(item)} className="rounded-2xl bg-zinc-100 py-3.5 text-[13px] font-bold text-zinc-900 transition-all duration-200 hover:bg-zinc-200 active:scale-[0.98]">添加到知识库</button>
-            </div>
+                {visibleKnowledge < item.ai.infographic.length && (
+                  <div className="mt-3 text-center">
+                    <div className="inline-flex items-center gap-2 text-xs text-zinc-400">
+                      <Loader2 size={12} className="animate-spin" />
+                      加载中...
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </motion.div>
       </motion.div>
