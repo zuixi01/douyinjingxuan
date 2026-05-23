@@ -1,3 +1,7 @@
+// 检测是否为移动设备
+const isMobile = typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (typeof window !== "undefined" && window.innerWidth < 768));
+
+// 根据设备类型选择视频路径
 export const LOCAL_DEMO_VIDEOS = [
   "/videos/darwin.mp4",
   "/videos/codex.mp4",
