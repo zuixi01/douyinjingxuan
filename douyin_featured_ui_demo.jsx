@@ -32,6 +32,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { FEED_ITEMS, DEFAULT_SECTIONS } from "./feed-data";
+import { getArticleDraft } from "./article-drafts";
 
 const STORAGE_KEYS = {
   sections: "douyin-ai-sections",
@@ -424,78 +425,197 @@ function FeedbackSheet({ item, onClose, onSelect }) {
     </AnimatePresence>
   );
 }
+
+function TimestampCard({ stamp, active, onJump }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onJump(stamp.time)}
+      className={`group flex w-full items-center justify-between rounded-3xl p-4 text-left ring-1 transition-all duration-300 active:scale-[0.99] ${active ? "bg-[#f2f2f2] ring-zinc-200 shadow-sm" : "bg-white ring-zinc-100 hover:bg-zinc-50 hover:shadow-sm"}`}
+    >
+      <div className="min-w-0">
+        <div className={`text-[18px] font-black ${active ? "text-cyan-600" : "text-zinc-950"}`}>{stamp.time}</div>
+        <div className="mt-2 line-clamp-2 text-sm leading-relaxed text-zinc-600">{stamp.label}</div>
+      </div>
+      <ChevronRight size={22} className={`${active ? "text-cyan-500" : "text-zinc-300"} transition-transform duration-300 group-hover:translate-x-0.5`} />
+    </button>
+  );
+}
+
+function BlogSection({ item }) {
+  return (
+    <section className="rounded-[28px] bg-white p-4 ring-1 ring-zinc-100">
+      <div className="flex items-center gap-2 text-sm font-black text-zinc-950">
+        <FileText size={18} className="text-orange-500" />
+        Blog 预览
+      </div>
+      <div className="mt-4 space-y-4">
+        <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+          <div className="text-xs font-black uppercase tracking-wide text-zinc-400">Title / Author / URL</div>
+          <div className="mt-2 text-sm font-semibold text-zinc-950">{item.title}</div>
+          <div className="mt-2 text-sm text-zinc-600">@{item.author}</div>
+          <div className="mt-2 break-all text-xs text-zinc-400">/{item.id}</div>
+        </div>
+
+        <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+          <div className="text-xs font-black uppercase tracking-wide text-zinc-400">一句核心结论</div>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-700">{item.ai.summary[0]}</p>
+        </div>
+
+        <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+          <div className="text-xs font-black uppercase tracking-wide text-zinc-400">主题小节</div>
+          <div className="mt-2 space-y-3 text-sm leading-relaxed text-zinc-700">
+            {item.ai.summary.slice(0, 3).map((point) => (
+              <p key={point}>{point}</p>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+          <div className="text-xs font-black uppercase tracking-wide text-zinc-400">抽象框架</div>
+          <div className="mt-2 space-y-3 text-sm leading-relaxed text-zinc-700">
+            {item.ai.summary.slice(0, 2).map((point, index) => (
+              <p key={`${index}-${point}`}>{point}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProgressiveText({ text, progress, className = "" }) {
+  const normalized = Math.max(0, Math.min(1, progress));
+  const visibleCount = Math.max(0, Math.round(text.length * normalized));
+  return <div className={className}>{text.slice(0, visibleCount)}{visibleCount < text.length ? <span className="inline-block w-2 animate-pulse">▍</span> : null}</div>;
+}
+
 function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
   if (!item) return null;
+  const draft = getArticleDraft(item.id);
+  const [visibleStage, setVisibleStage] = useState(0);
+  const [visibleThemeCount, setVisibleThemeCount] = useState(0);
+  const [visibleBlogLines, setVisibleBlogLines] = useState(1);
+  const [typeProgress, setTypeProgress] = useState(0);
+
+  useEffect(() => {
+    setVisibleStage(0);
+    setVisibleThemeCount(0);
+    setVisibleBlogLines(1);
+    setTypeProgress(0);
+    const timers = [
+      window.setTimeout(() => setVisibleStage(1), 260),
+      window.setTimeout(() => setVisibleThemeCount(1), 820),
+      window.setTimeout(() => setVisibleBlogLines(2), 1300),
+      window.setTimeout(() => setVisibleBlogLines(3), 1750),
+      window.setTimeout(() => setTypeProgress(1), 2300),
+    ];
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [item.id]);
+
+  const activeStamp = item.ai.timestamps[0];
+  const stageText = [
+    "正在读取缓存中的解析稿…",
+    "正在拆分时间戳与主题小节…",
+    "正在展开 Blog 预览…",
+  ];
+  const blogBlocks = [
+    {
+      title: "Title / Author / URL",
+      content: draft?.meta
+        ? `${draft.meta.title}\n@${draft.meta.author}\n${draft.meta.url || `/${item.id}`}`
+        : `${item.title}\n@${item.author}\n/${item.id}`,
+    },
+    {
+      title: "一句核心结论",
+      content: draft?.coreConclusion || item.ai.summary[0],
+    },
+    {
+      title: "主题小节",
+      content: draft?.themeSections?.[0]?.paragraphs?.slice(0, 3).join("\n\n") || item.ai.summary.slice(0, 3).join("\n\n"),
+    },
+    {
+      title: "抽象框架",
+      content: draft?.frameworkSection?.paragraphs?.slice(0, 3).join("\n\n") || item.ai.summary.slice(0, 2).join("\n\n"),
+    },
+  ];
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end bg-black/40 p-3 backdrop-blur-sm" onClick={onClose}>
-        <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }} onClick={(event) => event.stopPropagation()} className="max-h-[88vh] w-full overflow-y-auto rounded-xl bg-white shadow-2xl">
-          <div className={`relative overflow-hidden rounded-t-[2rem] bg-gradient-to-br ${item.bg} p-4 text-white`}>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.25),transparent_28%)]" />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-end bg-black/45 p-2.5 backdrop-blur-sm" onClick={onClose}>
+        <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }} onClick={(event) => event.stopPropagation()} className="max-h-[92vh] w-full overflow-hidden rounded-[30px] bg-[#f5f5f3] shadow-2xl">
+          <div className={`relative overflow-hidden rounded-t-[30px] bg-gradient-to-br ${item.bg} px-4 pb-4 pt-5 text-white`}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.2),transparent_28%)]" />
             <div className="relative flex items-start justify-between gap-3">
-              <div>
-                <div className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">AI 笔记</div>
-                <h2 className="mt-3 text-[23px] font-black leading-tight">{item.title}</h2>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-white/90">
-                  <span className="rounded-full bg-black/20 px-3 py-1">@{item.author}</span>
-                  <span className="rounded-full bg-black/20 px-3 py-1">原视频 {item.time}</span>
-                </div>
-              </div>
-              <button onClick={onClose} className="rounded-full bg-black/20 p-2 backdrop-blur transition-all duration-300 hover:bg-black/40 hover:rotate-90 active:scale-90"><X size={18} /></button>
+              <div className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">AI 笔记</div>
+              <button onClick={onClose} className="rounded-full bg-black/20 p-2 backdrop-blur transition-all duration-300 hover:bg-black/35 active:scale-90">
+                <X size={18} />
+              </button>
+            </div>
+            <h2 className="relative mt-4 text-[30px] font-black leading-[1.05] tracking-tight">{item.title}</h2>
+            <div className="relative mt-4 flex flex-wrap gap-2 text-xs font-semibold text-white/90">
+              <span className="rounded-full bg-black/20 px-3 py-1">@{item.author}</span>
+              <span className="rounded-full bg-black/20 px-3 py-1">原视频 {item.time}</span>
             </div>
           </div>
 
-          <div className="space-y-4 p-3">
+          <div className="max-h-[calc(92vh-180px)] overflow-y-auto px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+            <section className="mb-3 rounded-[28px] bg-white p-4 ring-1 ring-zinc-100">
+              <div className="flex items-center gap-2 text-sm font-black text-zinc-950">
+                <Loader2 size={18} className="animate-spin text-cyan-500" />
+                流式解析演示
+              </div>
+              <div className="mt-3 space-y-2">
+                <div className="rounded-3xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-600 ring-1 ring-zinc-100">
+                  {visibleStage >= 1 ? stageText[0] : " "}
+                </div>
+                <div className="rounded-3xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-600 ring-1 ring-zinc-100">
+                  {visibleStage >= 2 ? stageText[1] : " "}
+                </div>
+                <div className="rounded-3xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-600 ring-1 ring-zinc-100">
+                  {visibleStage >= 3 ? stageText[2] : " "}
+                </div>
+              </div>
+            </section>
+
             <section>
-              <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Sparkles size={18} className="text-cyan-500" />核心摘要</div>
+              <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950">
+                <Sparkles size={18} className="text-cyan-500" />
+                时间戳优先
+              </div>
               <div className="space-y-2">
-                {item.ai.summary.map((point) => (
-                  <div key={point} className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-700 ring-1 ring-zinc-100">{point}</div>
+                {item.ai.timestamps.slice(0, Math.max(1, visibleThemeCount + 1)).map((stamp, index) => (
+                  <TimestampCard key={stamp.time} stamp={stamp} active={index === 0} onJump={(time) => onJump(item, time)} />
                 ))}
               </div>
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg bg-cyan-50 p-4 ring-1 ring-cyan-100">
-                <div className="text-xs font-black text-cyan-700">适合人群</div>
-                <p className="mt-2 text-sm leading-relaxed text-cyan-900">{item.ai.audience}</p>
-              </div>
-              <div className="rounded-lg bg-amber-50 p-4 ring-1 ring-amber-100">
-                <div className="text-xs font-black text-amber-700">你会获得什么</div>
-                <p className="mt-2 text-sm leading-relaxed text-amber-900">{item.ai.takeaway}</p>
+            <section className="mt-3 grid gap-3">
+              <div className="rounded-[28px] bg-white p-4 ring-1 ring-zinc-100">
+                <div className="text-xs font-black text-cyan-700">可跳转片段</div>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-600">点击时间戳，直接回到视频对应片段，先看局部再看整体。</p>
               </div>
             </section>
 
-            <section>
-              <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Clock3 size={18} className="text-violet-500" />建议观看片段</div>
-              <div className="space-y-2">
-                {item.ai.timestamps.map((stamp) => (
-                  <button key={stamp.time} onClick={() => onJump(item, stamp.time)} className="group flex w-full items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3 text-left ring-1 ring-zinc-100 transition-all duration-300 hover:bg-zinc-100 hover:shadow-sm active:scale-[0.98]">
-                    <div>
-                      <div className="text-sm font-black text-zinc-950 transition-colors duration-300 group-hover:text-cyan-700">{stamp.time}</div>
-                      <div className="mt-1 text-sm text-zinc-500 transition-colors duration-300 group-hover:text-zinc-700">{stamp.label}</div>
-                    </div>
-                    <ChevronRight size={18} className="text-zinc-400 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-cyan-500" />
-                  </button>
-                ))}
+            <section className="mt-3">
+              <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950">
+                <Clock3 size={18} className="text-violet-500" />
+                Blog 预览
               </div>
-            </section>
-
-            <section>
-              <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Lightbulb size={18} className="text-amber-500" />信息图总结</div>
-              <div className="grid gap-3">
-                {item.ai.infographic.map((block) => (
-                  <div key={block.title} className="group rounded-lg border border-zinc-100 bg-gradient-to-br from-white to-zinc-50 p-4 shadow-sm transition-all duration-300 hover:shadow-md hover:border-cyan-100 hover:-translate-y-0.5">
-                    <div className="text-sm font-black text-zinc-950 transition-colors duration-300 group-hover:text-cyan-700">{block.title}</div>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-600 transition-colors duration-300 group-hover:text-zinc-800">{block.text}</p>
+              <section className="rounded-[28px] bg-white p-4 ring-1 ring-zinc-100">
+                <div className="space-y-3">
+                {blogBlocks.slice(0, visibleBlogLines).map((block) => (
+                  <div key={block.title} className="rounded-3xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+                    <div className="text-xs font-black uppercase tracking-wide text-zinc-400">{block.title}</div>
+                    <ProgressiveText text={block.content} progress={typeProgress} className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700" />
                   </div>
                 ))}
               </div>
             </section>
+            </section>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => onOpenVideo(item)} className="rounded-2xl bg-zinc-950 py-3 text-sm font-bold text-white transition-all duration-300 hover:bg-zinc-800 hover:shadow-lg active:scale-[0.98]">进入视频页</button>
-              <button onClick={() => onOpenSave(item)} className="rounded-2xl bg-zinc-100 py-3 text-sm font-bold text-zinc-950 transition-all duration-300 hover:bg-zinc-200 hover:shadow-md active:scale-[0.98]">添加到知识库</button>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button onClick={() => onOpenVideo(item)} className="rounded-3xl bg-zinc-950 py-4 text-sm font-black text-white transition-all duration-300 hover:bg-zinc-800 active:scale-[0.98]">进入视频页</button>
+              <button onClick={() => onOpenSave(item)} className="rounded-3xl bg-white py-4 text-sm font-black text-zinc-950 ring-1 ring-zinc-200 transition-all duration-300 hover:bg-zinc-50 active:scale-[0.98]">添加到知识库</button>
             </div>
           </div>
         </motion.div>
