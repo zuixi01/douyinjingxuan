@@ -706,6 +706,7 @@ function isInteractiveTarget(target) {
 
 export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpenSave, onJump, onSwipe }) {
   const videoRef = useRef(null);
+  const playerShellRef = useRef(null);
   const controlsTimerRef = useRef(null);
   const flashTimerRef = useRef(null);
   const aiTimerRef = useRef(null);
@@ -724,6 +725,8 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
   const [aiLoading, setAiLoading] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
+  const [videoOrientation, setVideoOrientation] = useState("portrait");
+  const [cinemaMode, setCinemaMode] = useState(false);
 
   const clearControlsTimer = () => {
     window.clearTimeout(controlsTimerRef.current);
@@ -809,7 +812,14 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
   }, [muted, volume]);
 
   useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setCinemaMode(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
       gestureRef.current?.cancel();
       clearControlsTimer();
       window.clearTimeout(flashTimerRef.current);
@@ -837,6 +847,9 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     if (!video) return;
     const nextDuration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : timeToSeconds(item.time);
     setDurationSeconds(nextDuration);
+    const width = Number(video.videoWidth) || 0;
+    const height = Number(video.videoHeight) || 0;
+    setVideoOrientation(width > height ? "landscape" : "portrait");
     const target = clamp(requestSeekRef.current, 0, nextDuration || 1);
     video.currentTime = target;
     setPlayheadSeconds(target);
@@ -863,6 +876,40 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     setVolume(nextValue);
     setMuted(nextValue === 0);
     revealControls(true);
+  };
+
+  const enterCinemaMode = async () => {
+    setCinemaMode(true);
+    revealControls(true);
+    try {
+      if (playerShellRef.current?.requestFullscreen && !document.fullscreenElement) {
+        await playerShellRef.current.requestFullscreen();
+      }
+    } catch {
+      // Some mobile in-app browsers block Fullscreen API; the fixed cinema layer still works.
+    }
+    try {
+      await window.screen?.orientation?.lock?.("landscape");
+    } catch {
+      // Orientation lock is optional and browser-dependent.
+    }
+  };
+
+  const exitCinemaMode = async () => {
+    setCinemaMode(false);
+    revealControls(true);
+    try {
+      window.screen?.orientation?.unlock?.();
+    } catch {
+      // Some browsers expose no unlock API.
+    }
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Exiting the fixed layer is enough if fullscreen exit fails.
+    }
   };
 
   const handlePointerDown = (event) => {
@@ -912,13 +959,25 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     return currentDiff < closestDiff ? stamp : closest;
   }, null);
 
+  const isLandscape = videoOrientation === "landscape";
+  const playerFrameClassName = isLandscape
+    ? cinemaMode
+      ? "min-h-0 flex-1"
+      : "aspect-video max-h-[56vh] md:max-h-[62vh]"
+    : "aspect-[9/16] max-h-[72vh]";
+  const videoFitClassName = isLandscape ? "object-contain bg-black" : "object-cover";
+  const shellClassName = cinemaMode
+    ? "fixed inset-0 z-[80] flex flex-col overflow-hidden rounded-none bg-black text-white"
+    : "relative overflow-hidden rounded-xl bg-black shadow-[0_24px_48px_rgba(0,0,0,0.4)] ring-1 ring-white/10";
+  const actionGridClassName = isLandscape ? "grid grid-cols-4 gap-2" : "grid grid-cols-3 gap-2";
+
   return (
-    <div className="relative overflow-hidden rounded-xl bg-black shadow-[0_24px_48px_rgba(0,0,0,0.4)] ring-1 ring-white/10">
+    <div ref={playerShellRef} className={shellClassName}>
       <div
         role="button"
         tabIndex={0}
         aria-label="视频播放区域"
-        className="relative aspect-[9/16] touch-manipulation overflow-hidden bg-black outline-none"
+        className={`relative w-full touch-manipulation overflow-hidden bg-black outline-none ${playerFrameClassName}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -932,7 +991,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
         <video
           ref={videoRef}
           data-testid="demo-video"
-          className="h-full w-full object-cover"
+          className={`h-full w-full ${videoFitClassName}`}
           preload={isMobile ? "metadata" : "auto"}
           playsInline
           webkit-playsinline="true"
@@ -970,13 +1029,13 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
                       AI
                     </span>
                   </button>
-                  <button type="button" data-interactive="true" className="rounded-full bg-black/35 p-2 backdrop-blur transition hover:bg-black/55 active:scale-95">
-                    <Search size={18} />
+                  <button type="button" data-interactive="true" onClick={isLandscape ? (cinemaMode ? exitCinemaMode : enterCinemaMode) : undefined} className="rounded-full bg-black/35 p-2 backdrop-blur transition hover:bg-black/55 active:scale-95" aria-label={isLandscape ? (cinemaMode ? "退出横屏观看" : "横屏观看") : "搜索"}>
+                    {isLandscape ? (cinemaMode ? <X size={18} /> : <Maximize2 size={18} />) : <Search size={18} />}
                   </button>
                 </div>
               </div>
 
-              <div className="absolute bottom-32 right-3 flex flex-col items-center gap-4 text-white">
+              <div className={`absolute right-3 flex flex-col items-center gap-4 text-white ${cinemaMode ? "bottom-24" : "bottom-32"}`}>
                 {[{ icon: Heart, label: "2.8万" }, { icon: MessageCircle, label: "534" }, { icon: ThumbsUp, label: "370" }, { icon: Bookmark, label: "1.1万" }].map((action) => {
                   const Icon = action.icon;
                   return (
@@ -1064,7 +1123,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
         </AnimatePresence>
       </div>
 
-      <div className="space-y-4 bg-zinc-950/95 px-4 py-4 text-white">
+      <div className={`space-y-3 bg-zinc-950/95 px-4 py-4 text-white ${cinemaMode ? "shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6" : ""}`}>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -1075,7 +1134,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
           >
             {isPlaying ? <Pause size={20} /> : <Play size={20} fill="currentColor" />}
           </button>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="mb-2 flex items-center justify-between text-xs font-semibold text-white/70">
               <span>{formatPlaybackTime(playheadSeconds)}</span>
               <span>{formatPlaybackTime(durationSeconds || timeToSeconds(item.time))}</span>
@@ -1092,65 +1151,77 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
               onPointerDown={() => revealControls(true)}
               className="h-1.5 w-full cursor-pointer accent-cyan-400"
             />
-            <div className="mt-2 flex gap-2 overflow-x-auto [scrollbar-width:none]">
-              {item.ai.timestamps.map((stamp) => (
-                <button
-                  key={stamp.time}
-                  type="button"
-                  data-interactive="true"
-                  onClick={() => {
-                    onJump(stamp.time);
-                    handleSeek(timeToSeconds(stamp.time));
-                  }}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition active:scale-95 ${activeStamp?.time === stamp.time ? "bg-cyan-400 text-zinc-950" : "bg-white/10 text-white hover:bg-white/20"}`}
-                >
-                  {stamp.time}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_auto] gap-3">
-          <div className="rounded-lg bg-white/5 p-3 ring-1 ring-white/10">
-            <div className="text-xs font-bold text-cyan-300">当前片段</div>
-            <div className="mt-2 text-sm font-semibold text-white">{activeStamp?.label || item.ai.timestamps[0].label}</div>
-          </div>
-          <div className="rounded-lg bg-white/5 px-3 py-3 ring-1 ring-white/10">
-            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-white/70">
-              <span>{muted || volume === 0 ? "静音" : "音量"}</span>
-              <button
-                type="button"
-                data-interactive="true"
-                onClick={() => {
-                  setMuted((value) => !value);
-                  revealControls(true);
-                }}
-                aria-label={muted || volume === 0 ? "取消静音" : "静音"}
-                className="rounded-full bg-white/10 p-2 transition hover:bg-white/20 active:scale-95"
-              >
-                {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
-            </div>
-            <input
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {item.ai.timestamps.map((stamp) => (
+            <button
+              key={stamp.time}
+              type="button"
               data-interactive="true"
-              aria-label="音量"
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={muted ? 0 : volume}
-              onChange={(event) => handleVolumeChange(event.target.value)}
-              onPointerDown={() => revealControls(true)}
-              className="h-24 w-2 cursor-pointer accent-cyan-400 [writing-mode:bt-lr] md:h-20"
-            />
-          </div>
+              onClick={() => {
+                onJump(stamp.time);
+                handleSeek(timeToSeconds(stamp.time));
+              }}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition active:scale-95 ${activeStamp?.time === stamp.time ? "bg-cyan-400 text-zinc-950" : "bg-white/10 text-white hover:bg-white/20"}`}
+            >
+              {stamp.time}
+            </button>
+          ))}
+          <button
+            type="button"
+            data-interactive="true"
+            onClick={() => {
+              setMuted((value) => !value);
+              revealControls(true);
+            }}
+            aria-label={muted || volume === 0 ? "取消静音" : "静音"}
+            className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold transition hover:bg-white/20 active:scale-95"
+          >
+            {muted || volume === 0 ? "静音" : "有声"}
+          </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
+          <button
+            type="button"
+            data-interactive="true"
+            onClick={() => {
+              setMuted((value) => !value);
+              revealControls(true);
+            }}
+            aria-label={muted || volume === 0 ? "取消静音" : "静音"}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20 active:scale-95"
+          >
+            {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+          <input
+            data-interactive="true"
+            aria-label="音量"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={muted ? 0 : volume}
+            onChange={(event) => handleVolumeChange(event.target.value)}
+            onPointerDown={() => revealControls(true)}
+            className="h-1.5 w-full cursor-pointer accent-cyan-400"
+          />
+        </div>
+
+        <div className={actionGridClassName}>
           <button type="button" data-interactive="true" onClick={() => onOpenAi(item)} className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
             AI 速读
           </button>
+          {isLandscape ? (
+            <button type="button" data-interactive="true" onClick={cinemaMode ? exitCinemaMode : enterCinemaMode} className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
+              <span className="inline-flex items-center gap-2">
+                {cinemaMode ? <X size={16} /> : <Maximize2 size={16} />}
+                {cinemaMode ? "退出" : "横屏"}
+              </span>
+            </button>
+          ) : null}
           <button type="button" data-interactive="true" className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
             <span className="inline-flex items-center gap-2">
               <Share2 size={16} />
@@ -1160,6 +1231,12 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
           <button type="button" data-interactive="true" onClick={() => onOpenSave(item)} className="rounded-2xl bg-cyan-400 py-3 text-sm font-black text-zinc-950 transition hover:bg-cyan-300 active:scale-95">
             保存摘要
           </button>
+        </div>
+
+        <div className="rounded-lg bg-white/5 p-3 ring-1 ring-white/10">
+          <div className="text-xs font-bold text-cyan-300">当前片段</div>
+          <div className="mt-2 text-sm font-semibold text-white">{activeStamp?.label || item.ai.timestamps[0].label}</div>
+          <div className="mt-2 text-xs leading-relaxed text-white/65 line-clamp-2">{item.ai.summary[0]}</div>
         </div>
       </div>
     </div>
@@ -1173,20 +1250,25 @@ function VideoPage({ item, currentTime, onBack, onOpenAi, onOpenSave, onJump, on
       <StatusBar dark />
       <div className="px-3 pb-6">
         <VideoPlayerSurface item={item} currentTime={currentTime} onBack={onBack} onOpenAi={onOpenAi} onOpenSave={onOpenSave} onJump={onJump} onSwipe={onSwipe} />
-        <div className="mt-4 rounded-lg bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur-sm">
-          <div className="flex items-center justify-between text-sm font-semibold text-white/80">
-            <span>合集：{item.category}专题</span>
-            <span>当前标记：{currentTime}</span>
+        <div className="mt-4 grid gap-3">
+          <div className="rounded-lg bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur-sm">
+            <div className="flex items-center justify-between text-sm font-semibold text-white/80">
+              <span>合集：{item.category}专题</span>
+              <span>当前标记：{currentTime}</span>
+            </div>
+            <div className="mt-3 h-2 rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-cyan-400" style={{ width: `${getProgressPercent(currentTime, item.time)}%` }} />
+            </div>
           </div>
-          <div className="mt-3 h-2 rounded-full bg-white/10">
-            <div className="h-2 rounded-full bg-cyan-400" style={{ width: `${getProgressPercent(currentTime, item.time)}%` }} />
-          </div>
-          <div className="mt-4 grid gap-2">
-            {item.ai.summary.slice(0, 2).map((point) => (
-              <div key={point} className="rounded-2xl bg-white/5 px-4 py-3 text-sm leading-relaxed text-white/80 ring-1 ring-white/10">
-                {point}
-              </div>
-            ))}
+          <div className="rounded-lg bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur-sm">
+            <div className="text-sm font-bold text-white/90">消费建议</div>
+            <div className="mt-2 grid gap-2">
+              {item.ai.summary.slice(0, 2).map((point) => (
+                <div key={point} className="rounded-2xl bg-white/5 px-4 py-3 text-sm leading-relaxed text-white/80 ring-1 ring-white/10">
+                  {point}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1786,6 +1868,7 @@ export default function DouyinFeaturedUIDemo() {
     setCurrentTime(time || item.ai.timestamps[0].time);
     setAiItem(null);
     setActive("video");
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
   };
 
   const handleCreateSection = async (name) => {

@@ -110,6 +110,20 @@ beforeAll(() => {
     },
   });
 
+  Object.defineProperty(HTMLMediaElement.prototype, "videoWidth", {
+    configurable: true,
+    get() {
+      return ensureMediaState(this).videoWidth || 0;
+    },
+  });
+
+  Object.defineProperty(HTMLMediaElement.prototype, "videoHeight", {
+    configurable: true,
+    get() {
+      return ensureMediaState(this).videoHeight || 0;
+    },
+  });
+
   Object.defineProperty(HTMLMediaElement.prototype, "volume", {
     configurable: true,
     get() {
@@ -238,5 +252,33 @@ describe("VideoPlayerSurface", () => {
     });
     expect(video.volume).toBe(0);
     expect(video.muted).toBe(true);
+  });
+
+  it("横屏视频提供沉浸观看入口并可退出", async () => {
+    const { video } = renderPlayer();
+    Object.defineProperty(video, "videoWidth", {
+      configurable: true,
+      get() {
+        return 854;
+      },
+    });
+    Object.defineProperty(video, "videoHeight", {
+      configurable: true,
+      get() {
+        return 480;
+      },
+    });
+
+    await act(async () => {
+      fireEvent.loadedMetadata(video);
+      await Promise.resolve();
+    });
+
+    const enterButton = screen.getByRole("button", { name: "横屏" });
+    fireEvent.click(enterButton);
+    expect(screen.getByRole("button", { name: "退出" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "退出" }));
+    expect(screen.getByRole("button", { name: "横屏" })).toBeTruthy();
   });
 });
