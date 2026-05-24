@@ -1,20 +1,26 @@
 import { apiRequest, isApiReachable, markApiUnavailable } from "./apiClient";
+import { normalizeAiCardData } from "../features/knowledge/model";
 
 export function buildKnowledgePreview(item) {
   if (!item) return null;
+  const ai = normalizeAiCardData({ title: item.title, tags: item.tags, ai: item.ai });
 
   return {
     id: item.id,
     title: item.title,
     author: item.author,
     duration: item.time,
-    summary: item.ai?.summary ?? [],
-    audience: item.ai?.audience ?? "适合希望快速理解内容价值的读者。",
-    takeaway: item.ai?.takeaway ?? "已提取核心收获，可继续深入整理。",
-    timestamps: item.ai?.timestamps ?? [],
-    infographic: item.ai?.infographic ?? [],
+    summary: ai.summary,
+    audience: ai.audience,
+    takeaway: ai.takeaway,
+    timestamps: ai.timestamps,
+    infographic: ai.infographic,
+    keywords: ai.keywords,
+    quotes: ai.quotes,
+    entities: ai.entities,
+    relations: ai.relations,
     tags: item.tags ?? [],
-    status: item.ai ? "ready" : "draft",
+    status: ai.summary.length ? "ready" : "draft",
   };
 }
 

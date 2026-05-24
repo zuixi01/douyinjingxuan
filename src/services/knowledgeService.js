@@ -1,4 +1,4 @@
-import { buildSavedRecord } from "../features/knowledge/model";
+import { buildSavedRecord, normalizeAiCardData } from "../features/knowledge/model";
 import { apiRequest, isApiReachable, markApiUnavailable } from "./apiClient";
 
 function wait(ms = 120) {
@@ -58,6 +58,7 @@ function saveItemLocal(savedItems, item, sectionId, sections) {
 function searchLocal(savedItems, { query, sectionId, tag, mode, sortBy }) {
   const keyword = query.trim().toLowerCase();
   const filtered = savedItems.filter((entry) => {
+    const ai = normalizeAiCardData({ title: entry.title, tags: entry.tags, ai: entry.ai });
     if (mode === "notes" && !entry.ai) return false;
     if (sectionId !== "all" && entry.sectionId !== sectionId) return false;
     if (tag !== "全部" && !entry.tags.includes(tag)) return false;
@@ -68,8 +69,11 @@ function searchLocal(savedItems, { query, sectionId, tag, mode, sortBy }) {
       entry.author,
       entry.sectionName,
       ...entry.tags,
-      entry.ai?.takeaway ?? "",
-      ...(entry.ai?.summary ?? []),
+      ai.takeaway,
+      ...ai.summary,
+      ...ai.keywords,
+      ...ai.quotes.map((quote) => quote.text),
+      ...ai.entities.map((entity) => entity.label),
     ]
       .join(" ")
       .toLowerCase();
@@ -97,8 +101,23 @@ function createTextCardLocal(savedItems, sections, payload) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 3);
-
-  const excerpt = (summary[0] ?? payload.content).slice(0, 140);
+  const ai = normalizeAiCardData({
+    title: payload.title,
+    tags: payload.tags ?? [],
+    ai: {
+      summary,
+      audience: "适合希望沉淀个人知识与观点的读者。",
+      takeaway: (summary[0] ?? payload.content).slice(0, 140) || "已根据文本生成首版知识卡片。",
+      timestamps: [],
+      infographic: [
+        { title: "核心主题", text: (summary[0] ?? payload.content).slice(0, 140) || "等待补充摘要" },
+        { title: "整理建议", text: "后续可继续补充标签、来源和延伸关联。" },
+      ],
+      quotes: summary.slice(0, 2),
+      keywords: payload.tags ?? [],
+    },
+  });
+  const excerpt = (ai.summary[0] ?? payload.content).slice(0, 140);
   const cardId = `text-${Date.now()}`;
   const record = {
     id: `${section.id}-${cardId}`,
@@ -112,16 +131,7 @@ function createTextCardLocal(savedItems, sections, payload) {
     coverTitle: payload.title.trim(),
     category: payload.category?.trim() || "笔记",
     tags: payload.tags ?? [],
-    ai: {
-      summary,
-      audience: "适合希望沉淀个人知识与观点的读者。",
-      takeaway: excerpt || "已根据文本生成首版知识卡片。",
-      timestamps: [],
-      infographic: [
-        { title: "核心主题", text: excerpt || "等待补充摘要" },
-        { title: "整理建议", text: "后续可继续补充标签、来源和延伸关联。" },
-      ],
-    },
+    ai,
     sourceType: "text",
     sourceRef: "",
     cardVariant: "note",
@@ -279,6 +289,14 @@ export const knowledgeService = {
           for (const summary of item.ai.summary) md += `- ${summary}\n`;
           md += `\n**适合人群**：${item.ai.audience}\n\n`;
           md += `**关键收获**：${item.ai.takeaway}\n\n`;
+          if (item.ai.keywords?.length) {
+            md += `**关键词**：${item.ai.keywords.join("、")}\n\n`;
+          }
+          if (item.ai.quotes?.length) {
+            md += "**金句**\n\n";
+            for (const quote of item.ai.quotes) md += `- ${quote.text}\n`;
+            md += "\n";
+          }
 
           if (item.ai.timestamps?.length) {
             md += "**时间戳**\n\n";

@@ -105,6 +105,10 @@ def preview_card(payload: PreviewRequest) -> dict:
         "takeaway": payload.ai.takeaway if payload.ai else "已提取核心收获，可继续深入整理。",
         "timestamps": payload.ai.timestamps if payload.ai else [],
         "infographic": payload.ai.infographic if payload.ai else [],
+        "quotes": payload.ai.quotes if payload.ai else [],
+        "keywords": payload.ai.keywords if payload.ai else [],
+        "entities": payload.ai.entities if payload.ai else [],
+        "relations": payload.ai.relations if payload.ai else [],
         "tags": payload.tags,
         "status": "ready" if payload.ai else "draft",
     }

@@ -224,20 +224,25 @@ function FeedCard({ item, onOpen, onSummarize, onMore }) {
   }, []);
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="break-inside-avoid overflow-hidden rounded-lg bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)] ring-1 ring-zinc-100 transition-all duration-300 hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:ring-zinc-200">
-      <button
-        type="button"
-        onPointerUp={() => gestureRef.current?.registerTap()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onOpen(item);
-          }
-        }}
-        className="group block w-full touch-manipulation text-left"
-      >
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      role="button"
+      tabIndex={0}
+      aria-label={`打开视频：${item.title}`}
+      onPointerUp={() => gestureRef.current?.registerTap()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(item);
+        }
+      }}
+      className="group break-inside-avoid overflow-hidden rounded-lg bg-white text-left shadow-[0_8px_24px_rgba(0,0,0,0.06)] ring-1 ring-zinc-100 transition-all duration-300 hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] hover:ring-zinc-200"
+    >
+      <div className="block w-full touch-manipulation text-left">
         <Cover item={item} hint={hint} className="transition-transform duration-700 ease-out group-hover:scale-[1.02]" />
-      </button>
+      </div>
       <div className="px-3 pb-3 pt-2.5">
         <h3 className="line-clamp-2 text-[16.5px] font-semibold leading-snug text-zinc-950 transition-colors duration-300 group-hover:text-zinc-700">{item.title}</h3>
         <div className="mt-2 flex flex-wrap gap-1">
@@ -250,7 +255,16 @@ function FeedCard({ item, onOpen, onSummarize, onMore }) {
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-zinc-100 to-zinc-300 text-[11px] font-black text-zinc-700 transition-transform duration-300 group-hover/author:scale-110">{item.avatar}</div>
             <span className="truncate transition-colors duration-300 group-hover/author:text-zinc-900">{item.author}</span>
           </div>
-          <button onClick={() => onMore(item)} className="rounded-full p-1.5 transition-all duration-300 hover:bg-zinc-100 active:scale-90"><MoreHorizontal size={18} /></button>
+          <button
+            onPointerUp={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onMore(item);
+            }}
+            className="rounded-full p-1.5 transition-all duration-300 hover:bg-zinc-100 active:scale-90"
+          >
+            <MoreHorizontal size={18} />
+          </button>
         </div>
       </div>
     </motion.div>
@@ -379,6 +393,33 @@ function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
               </div>
             </section>
 
+            {safePreview.keywords.length ? (
+              <section>
+                <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Database size={18} className="text-cyan-500" />主题关键词</div>
+                <div className="flex flex-wrap gap-2">
+                  {safePreview.keywords.map((keyword) => (
+                    <span key={keyword} className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 ring-1 ring-cyan-100">
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {safePreview.quotes.length ? (
+              <section>
+                <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><FileText size={18} className="text-rose-500" />金句沉淀</div>
+                <div className="space-y-2">
+                  {safePreview.quotes.map((quote) => (
+                    <div key={quote.id || quote.text} className="rounded-2xl bg-gradient-to-r from-rose-50 to-orange-50 px-4 py-3 ring-1 ring-rose-100">
+                      <div className="text-sm font-semibold leading-relaxed text-zinc-800">"{quote.text}"</div>
+                      {quote.source ? <div className="mt-2 text-[11px] font-bold uppercase tracking-wide text-rose-500">{quote.source}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             <section>
               <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Clock3 size={18} className="text-violet-500" />建议观看片段</div>
               <div className="space-y-2">
@@ -393,6 +434,45 @@ function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
                 ))}
               </div>
             </section>
+
+            {safePreview.entities.length ? (
+              <section>
+                <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Database size={18} className="text-emerald-500" />知识关系</div>
+                <div className="rounded-3xl bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_35%),linear-gradient(180deg,#ffffff,#f8fafc)] p-3 ring-1 ring-zinc-100">
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {safePreview.entities.map((entity, index) => (
+                      <span
+                        key={entity.id}
+                        className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${
+                          index === 0
+                            ? "bg-zinc-950 text-white ring-zinc-950"
+                            : "bg-white text-zinc-700 ring-zinc-200"
+                        }`}
+                      >
+                        {entity.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {safePreview.relations.length ? safePreview.relations.map((relation) => {
+                      const source = safePreview.entities.find((entity) => entity.id === relation.source);
+                      const target = safePreview.entities.find((entity) => entity.id === relation.target);
+                      return (
+                        <div key={`${relation.source}-${relation.target}-${relation.label}`} className="rounded-2xl bg-white px-3 py-2 text-sm text-zinc-600 ring-1 ring-zinc-100">
+                          <span className="font-bold text-zinc-900">{source?.label ?? relation.source}</span>
+                          <span className="mx-2 text-emerald-600">{relation.label}</span>
+                          <span className="font-bold text-zinc-900">{target?.label ?? relation.target}</span>
+                        </div>
+                      );
+                    }) : (
+                      <div className="rounded-2xl bg-white px-3 py-2 text-sm text-zinc-500 ring-1 ring-zinc-100">
+                        已提取知识节点，等待更多关系补充
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             <section>
               <div className="mb-3 flex items-center gap-2 text-sm font-black text-zinc-950"><Lightbulb size={18} className="text-amber-500" />信息图总结</div>
@@ -1700,7 +1780,7 @@ export default function DouyinFeaturedUIDemo() {
 
   const openVideo = (item, time) => {
     setVideoItem(item);
-    setCurrentTime(time || item.ai.timestamps[0].time);
+    setCurrentTime(time || item.ai?.timestamps?.[0]?.time || "00:00");
     setAiItem(null);
     setActive("video");
     window.requestAnimationFrame(() => safeScrollToTop());
@@ -1755,7 +1835,7 @@ export default function DouyinFeaturedUIDemo() {
 
   const openRecord = (record) => {
     const item = FEED_ITEMS.find((entry) => entry.id === record.itemId) || { ...record, id: record.itemId };
-    openVideo(item, record.ai.timestamps[0].time);
+    openVideo(item, record.ai?.timestamps?.[0]?.time || "00:00");
   };
 
   const swipeVideo = (direction) => {
@@ -1781,7 +1861,7 @@ export default function DouyinFeaturedUIDemo() {
     }
 
     setVideoItem(nextItem);
-    setCurrentTime(nextItem.ai.timestamps[0].time);
+    setCurrentTime(nextItem.ai?.timestamps?.[0]?.time || "00:00");
     setAiItem(null);
     setToast(direction === "next" ? "已切到下一条" : "已切到上一条");
   };

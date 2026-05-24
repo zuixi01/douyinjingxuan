@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,7 +50,44 @@ class CardModel(Base):
     saved_at = Column(String(64), nullable=False)
 
 
-def summarize_text(content: str) -> dict[str, Any]:
+def _unique_strings(values: list[str]) -> list[str]:
+    return list(dict.fromkeys([value.strip() for value in values if value and value.strip()]))
+
+
+def _node_id(label: str) -> str:
+    normalized = re.sub(r"[^\w\u4e00-\u9fa5-]", "", label.strip().lower().replace(" ", "-"))
+    return normalized or f"node-{uuid4().hex[:6]}"
+
+
+def _build_knowledge_graph_fields(title: str, summary: list[str], keywords: list[str]) -> dict[str, Any]:
+    normalized_keywords = _unique_strings(keywords)[:8]
+    quotes = [
+        {"id": f"quote-{index}", "text": text, "source": "视频金句" if index == 0 else "延伸观点"}
+        for index, text in enumerate(summary[:2])
+    ]
+    entity_labels = normalized_keywords[:5] or [title.strip()]
+    entities = [
+        {
+            "id": _node_id(label),
+            "label": label,
+            "type": "topic" if index == 0 else "keyword",
+            "weight": max(1, 6 - index),
+        }
+        for index, label in enumerate(entity_labels)
+    ]
+    relations = [
+        {"source": entities[0]["id"], "target": entity["id"], "label": "关联"}
+        for entity in entities[1:]
+    ]
+    return {
+        "quotes": quotes,
+        "keywords": normalized_keywords,
+        "entities": entities,
+        "relations": relations,
+    }
+
+
+def summarize_text(content: str, title: str = "", tags: list[str] | None = None) -> dict[str, Any]:
     lines = [segment.strip() for segment in content.replace("\r", "").split("\n") if segment.strip()]
     paragraphs = lines if lines else [content.strip()]
     summary = paragraphs[:3] if paragraphs else ["暂无摘要"]
@@ -63,11 +101,12 @@ def summarize_text(content: str) -> dict[str, Any]:
             {"title": "核心主题", "text": excerpt or "等待补充摘要"},
             {"title": "整理建议", "text": "后续可继续补充标签、来源和延伸关联。"},
         ],
+        **_build_knowledge_graph_fields(title or (summary[0] if summary else "知识"), summary, tags or []),
     }
 
 
 def build_text_card(payload: TextIntakeRequest, section: dict[str, Any]) -> dict[str, Any]:
-    ai = summarize_text(payload.content)
+    ai = summarize_text(payload.content, title=payload.title, tags=payload.tags)
     card_id = f"{section['id']}-text-{uuid4().hex[:8]}"
     return {
         "id": card_id,
@@ -341,6 +380,7 @@ def _filter_cards(cards: list[dict[str, Any]], params: SearchParams) -> list[dic
         if params.tag != "全部" and params.tag not in card.get("tags", []):
             continue
         if keyword:
+            ai_payload = card.get("ai") or {}
             haystack = " ".join(
                 [
                     card["title"],
@@ -348,8 +388,11 @@ def _filter_cards(cards: list[dict[str, Any]], params: SearchParams) -> list[dic
                     card["sectionName"],
                     *card.get("tags", []),
                     card.get("excerpt", ""),
-                    card["ai"].get("takeaway", ""),
-                    *card["ai"].get("summary", []),
+                    ai_payload.get("takeaway", ""),
+                    *ai_payload.get("summary", []),
+                    *ai_payload.get("keywords", []),
+                    *[quote.get("text", "") for quote in ai_payload.get("quotes", [])],
+                    *[entity.get("label", "") for entity in ai_payload.get("entities", [])],
                 ]
             ).lower()
             if keyword not in haystack:

@@ -42,6 +42,13 @@ def test_sections_and_cards_flow():
             "takeaway": "掌握 Codex 的核心用法",
             "timestamps": [{"time": "00:01", "label": "开场", "seconds": 1}],
             "infographic": [{"title": "要点", "text": "一条关键结论"}],
+            "quotes": [{"id": "quote-0", "text": "先用 Codex 跑通最小闭环", "source": "视频金句"}],
+            "keywords": ["Codex", "AI工具"],
+            "entities": [
+                {"id": "codex", "label": "Codex", "type": "tool", "weight": 5},
+                {"id": "ai-tool", "label": "AI工具", "type": "topic", "weight": 4},
+            ],
+            "relations": [{"source": "codex", "target": "ai-tool", "label": "属于"}],
         },
         "sourceType": "video",
         "sourceRef": "/videos/codex.mp4",
@@ -86,6 +93,8 @@ def test_text_intake_flow():
     assert payload["ok"] is True
     assert payload["record"]["sourceType"] == "text"
     assert payload["record"]["ai"]["summary"]
+    assert payload["record"]["ai"]["quotes"]
+    assert payload["record"]["ai"]["entities"]
 
 
 def test_database_repository_supports_text_cards(tmp_path):
@@ -105,3 +114,5 @@ def test_database_repository_supports_text_cards(tmp_path):
     cards = repository.list_cards(SearchParams(query_value="数据库模式"))
     assert card["title"] == "数据库模式笔记"
     assert len(cards) == 1
+    assert card["ai"]["keywords"] == ["数据库", "测试"]
+    assert card["ai"]["relations"]

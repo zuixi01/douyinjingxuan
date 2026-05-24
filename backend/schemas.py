@@ -26,12 +26,35 @@ class InfographicItem(BaseModel):
     text: str
 
 
+class QuoteItem(BaseModel):
+    id: str = ""
+    text: str
+    source: str = ""
+
+
+class EntityItem(BaseModel):
+    id: str
+    label: str
+    type: str = "topic"
+    weight: int = 1
+
+
+class RelationItem(BaseModel):
+    source: str
+    target: str
+    label: str = "关联"
+
+
 class AICard(BaseModel):
     summary: list[str] = Field(default_factory=list)
     audience: str = ""
     takeaway: str = ""
     timestamps: list[TimestampItem] = Field(default_factory=list)
     infographic: list[InfographicItem] = Field(default_factory=list)
+    quotes: list[QuoteItem] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    entities: list[EntityItem] = Field(default_factory=list)
+    relations: list[RelationItem] = Field(default_factory=list)
 
 
 class KnowledgeCard(BaseModel):

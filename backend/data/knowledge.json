@@ -11,5 +11,268 @@
       "desc": "先存起来，空闲再看"
     }
   ],
-  "cards": []
+  "cards": [
+    {
+      "id": "default-codex",
+      "sectionName": "默认收藏",
+      "itemId": "codex",
+      "sectionId": "default",
+      "title": "40分钟学会Codex！零基础终级教程",
+      "author": "秋芝2046",
+      "time": "40:15",
+      "bg": "from-gray-950 via-slate-900 to-indigo-800",
+      "coverTitle": "Codex 终极教程\n零基础入门",
+      "category": "AI",
+      "tags": [
+        "Codex",
+        "AI工具",
+        "编程",
+        "教程"
+      ],
+      "ai": {
+        "summary": [
+          "Codex 是 OpenAI 的代码生成模型，能将自然语言转化为代码。",
+          "视频从零开始，手把手教你配置环境和使用 Codex。",
+          "涵盖基础用法、高级技巧和实际项目案例。",
+          "适合想用 AI 提升编程效率的开发者和学习者。"
+        ],
+        "audience": "适合编程初学者、想提升效率的开发者、AI 工具爱好者。",
+        "takeaway": "掌握 Codex 的核心用法，用 AI 辅助编程。",
+        "timestamps": [
+          {
+            "time": "00:01",
+            "label": "什么是 Codex？为什么它很重要",
+            "seconds": 1
+          },
+          {
+            "time": "00:10",
+            "label": "环境配置与第一个代码生成",
+            "seconds": 10
+          },
+          {
+            "time": "00:25",
+            "label": "高级用法：上下文提示与调试",
+            "seconds": 25
+          },
+          {
+            "time": "00:35",
+            "label": "实战项目：用 Codex 构建完整应用",
+            "seconds": 35
+          }
+        ],
+        "infographic": [
+          {
+            "title": "基础概念",
+            "text": "Codex 是基于 GPT 的代码生成模型，支持多种编程语言。"
+          },
+          {
+            "title": "核心技能",
+            "text": "学会编写有效的提示词，获得高质量代码输出。"
+          },
+          {
+            "title": "实战应用",
+            "text": "将 Codex 集成到开发工作流中，提升编码效率。"
+          }
+        ],
+        "quotes": [
+          {
+            "id": "quote-0",
+            "text": "Codex 是 OpenAI 的代码生成模型，能将自然语言转化为代码。",
+            "source": "核心结论"
+          },
+          {
+            "id": "quote-1",
+            "text": "视频从零开始，手把手教你配置环境和使用 Codex。",
+            "source": "延伸观点"
+          }
+        ],
+        "keywords": [
+          "Codex",
+          "AI工具",
+          "编程",
+          "教程"
+        ],
+        "entities": [
+          {
+            "id": "codex",
+            "label": "Codex",
+            "type": "topic",
+            "weight": 6
+          },
+          {
+            "id": "ai工具",
+            "label": "AI工具",
+            "type": "keyword",
+            "weight": 5
+          },
+          {
+            "id": "编程",
+            "label": "编程",
+            "type": "keyword",
+            "weight": 4
+          },
+          {
+            "id": "教程",
+            "label": "教程",
+            "type": "keyword",
+            "weight": 3
+          }
+        ],
+        "relations": [
+          {
+            "source": "codex",
+            "target": "ai工具",
+            "label": "关联"
+          },
+          {
+            "source": "codex",
+            "target": "编程",
+            "label": "关联"
+          },
+          {
+            "source": "codex",
+            "target": "教程",
+            "label": "关联"
+          }
+        ]
+      },
+      "sourceType": "video",
+      "sourceRef": "/videos/codex.mp4",
+      "cardVariant": "feature",
+      "summaryStatus": "ready",
+      "excerpt": "Codex 是 OpenAI 的代码生成模型，能将自然语言转化为代码。",
+      "savedAt": "2026-05-24T03:33:52.516Z"
+    },
+    {
+      "id": "default-darwin",
+      "sectionName": "默认收藏",
+      "itemId": "darwin",
+      "sectionId": "default",
+      "title": "达尔文的死敌：偷窃、封杀、造假与跨越半世纪的复仇",
+      "author": "科学史档案",
+      "time": "15:30",
+      "bg": "from-stone-950 via-amber-900 to-orange-700",
+      "coverTitle": "达尔文之争\n科学史的黑暗面",
+      "category": "科普",
+      "tags": [
+        "科学史",
+        "达尔文",
+        "进化论",
+        "学术"
+      ],
+      "ai": {
+        "summary": [
+          "达尔文并非独自发现进化论，华莱士的贡献长期被边缘化。",
+          "科学史上充满了优先权之争、学术打压和数据造假。",
+          "视频还原了 19 世纪博物学界的权力斗争与人性弱点。",
+          "这段历史对今天的学术圈仍有深刻警示意义。"
+        ],
+        "audience": "适合对科学史、学术伦理和科学家故事感兴趣的观众。",
+        "takeaway": "理解科学发现背后的复杂人性和权力博弈。",
+        "timestamps": [
+          {
+            "time": "00:01",
+            "label": "华莱士的信如何改变了达尔文的命运",
+            "seconds": 1
+          },
+          {
+            "time": "00:05",
+            "label": "自然选择理论的优先权之争",
+            "seconds": 5
+          },
+          {
+            "time": "00:10",
+            "label": "赫胥黎的学术公关与造神运动",
+            "seconds": 10
+          },
+          {
+            "time": "00:14",
+            "label": "科学史的另一面：人性与权力",
+            "seconds": 14
+          }
+        ],
+        "infographic": [
+          {
+            "title": "优先权之争",
+            "text": "华莱士与达尔文同时独立发现自然选择理论。"
+          },
+          {
+            "title": "学术政治",
+            "text": "赫胥黎等人如何通过社交网络推动进化论传播。"
+          },
+          {
+            "title": "历史教训",
+            "text": "科学发现的荣誉分配往往取决于非学术因素。"
+          }
+        ],
+        "quotes": [
+          {
+            "id": "quote-0",
+            "text": "达尔文并非独自发现进化论，华莱士的贡献长期被边缘化。",
+            "source": "核心结论"
+          },
+          {
+            "id": "quote-1",
+            "text": "科学史上充满了优先权之争、学术打压和数据造假。",
+            "source": "延伸观点"
+          }
+        ],
+        "keywords": [
+          "科学史",
+          "达尔文",
+          "进化论",
+          "学术"
+        ],
+        "entities": [
+          {
+            "id": "科学史",
+            "label": "科学史",
+            "type": "topic",
+            "weight": 6
+          },
+          {
+            "id": "达尔文",
+            "label": "达尔文",
+            "type": "keyword",
+            "weight": 5
+          },
+          {
+            "id": "进化论",
+            "label": "进化论",
+            "type": "keyword",
+            "weight": 4
+          },
+          {
+            "id": "学术",
+            "label": "学术",
+            "type": "keyword",
+            "weight": 3
+          }
+        ],
+        "relations": [
+          {
+            "source": "科学史",
+            "target": "达尔文",
+            "label": "关联"
+          },
+          {
+            "source": "科学史",
+            "target": "进化论",
+            "label": "关联"
+          },
+          {
+            "source": "科学史",
+            "target": "学术",
+            "label": "关联"
+          }
+        ]
+      },
+      "sourceType": "video",
+      "sourceRef": "/videos/darwin.mp4",
+      "cardVariant": "feature",
+      "summaryStatus": "ready",
+      "excerpt": "达尔文并非独自发现进化论，华莱士的贡献长期被边缘化。",
+      "savedAt": "2026-05-24T03:20:45.231Z"
+    }
+  ]
 }

@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import App, { DOUBLE_TAP_DELAY, VideoPlayerSurface } from "../douyin_featured_ui_demo.jsx";
+import App, { DOUBLE_TAP_DELAY, VideoPlayerSurface } from "./app/App.jsx";
 
 const SAMPLE_ITEM = {
   id: "ai-workflow",
@@ -276,37 +276,204 @@ describe("VideoPlayerSurface", () => {
     });
 
     const enterButton = screen.getByRole("button", { name: "横屏" });
-    fireEvent.click(enterButton);
+    await act(async () => {
+      fireEvent.click(enterButton);
+      await Promise.resolve();
+    });
     expect(screen.getByRole("button", { name: "退出" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "退出" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "退出" }));
+      await Promise.resolve();
+    });
     expect(screen.getByRole("button", { name: "横屏" })).toBeTruthy();
   });
 
   it("首页单击推荐卡片会进入视频页", async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByText(/奶茶为什么越来越贵/));
+    const cardButton = screen.getByRole("button", { name: /打开视频：40分钟学会Codex！零基础终级教程/ });
+    fireEvent.pointerDown(cardButton, { pointerType: "mouse", clientX: 16, clientY: 16 });
+    fireEvent.pointerUp(cardButton, { pointerType: "mouse", clientX: 16, clientY: 16 });
 
     await act(async () => {
       vi.advanceTimersByTime(DOUBLE_TAP_DELAY + 20);
       await Promise.resolve();
     });
 
-    expect(screen.getByText("合集：经济专题")).toBeTruthy();
+    expect(screen.getByText("作者声明：内容由 AI 生成")).toBeTruthy();
   });
 
-  it("个人页点击 AI笔记 会进入知识库管理页", async () => {
+  it("首页点击卡片标题区域也会进入视频页", async () => {
+    render(<App />);
+
+    fireEvent.pointerUp(screen.getByText("40分钟学会Codex！零基础终级教程"), {
+      pointerType: "mouse",
+      clientX: 24,
+      clientY: 24,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(DOUBLE_TAP_DELAY + 20);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("作者声明：内容由 AI 生成")).toBeTruthy();
+  });
+
+  it("个人页点击 AI笔记 会进入知识库页", async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: "我" }));
-    fireEvent.click(screen.getByRole("button", { name: /AI笔记/ }));
+    fireEvent.click(screen.getByRole("button", { name: /AI 笔记/ }));
 
     await act(async () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("知识库管理")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "知识库" })).toBeTruthy();
     expect(screen.getByText("我的分区")).toBeTruthy();
+  });
+
+  it("知识库点击记录卡片会先打开知识详情弹层", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /查看记录：/ }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "关闭知识卡" })).toBeTruthy();
+    expect(screen.getAllByText("核心金句").length).toBeGreaterThan(0);
+    expect(screen.getByText("进入视频")).toBeTruthy();
+  });
+
+  it("知识库详情弹层点击进入视频会跳转到视频页", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /查看记录：/ }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "进入视频" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("作者声明：内容由 AI 生成")).toBeTruthy();
+  });
+
+  it("知识卡详情会展示翻页控件", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /查看记录：/ }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "上一张" }).getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "下一张" }).getAttribute("disabled")).not.toBeNull();
+  });
+
+  it("图谱里可以打开关联知识卡片", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "图谱" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByRole("button", { name: /图谱节点：/ }).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /打开关联卡片：/ }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("作者声明：内容由 AI 生成")).toBeTruthy();
+  });
+
+  it("图谱点击关系边后会展示关系卡片", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "图谱" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /图谱关系：/ })[0]);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("当前关系：")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /打开关联卡片：/ })).toBeTruthy();
+  });
+
+  it("图谱支持放大查看", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "图谱" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "放大查看" })[0]);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/滚轮缩放，拖拽浏览，双击节点居中/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重置位置" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "放大" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "缩小" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "关闭" })).toBeTruthy();
   });
 });
