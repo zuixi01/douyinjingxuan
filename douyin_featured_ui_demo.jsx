@@ -488,14 +488,73 @@ function ProgressiveText({ text, progress, className = "" }) {
   return <div className={className}>{text.slice(0, visibleCount)}{visibleCount < text.length ? <span className="inline-block w-2 animate-pulse">▍</span> : null}</div>;
 }
 
+function ShimmerLoader({ lines = 3 }) {
+  return (
+    <div className="space-y-2.5">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="relative overflow-hidden rounded-md bg-zinc-100" style={{ height: 14, width: i === lines - 1 ? "60%" : "100%" }}>
+          <motion.div
+            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent"
+            animate={{ translateX: ["-100%", "100%"] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StreamingText({ text, started, speed = 30, className = "" }) {
+  const [count, setCount] = useState(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!started || !text) return;
+    setCount(0);
+    timerRef.current = setInterval(() => {
+      setCount((prev) => {
+        if (prev >= text.length) {
+          clearInterval(timerRef.current);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, speed);
+    return () => clearInterval(timerRef.current);
+  }, [started, text, speed]);
+
+  if (!started) return null;
+  const done = count >= text.length;
+  return (
+    <div className={className}>
+      {text.slice(0, count)}
+      {!done && <span className="inline-block w-1.5 animate-pulse text-zinc-400">▍</span>}
+    </div>
+  );
+}
+
 function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
   if (!item) return null;
   const [visibleTimestamps, setVisibleTimestamps] = useState(1);
   const [visibleKnowledge, setVisibleKnowledge] = useState(0);
+  const [phase, setPhase] = useState("init"); // init | loading | conclusion | themes | framework | done
+  const [conclusionStarted, setConclusionStarted] = useState(false);
+  const [themeIndex, setThemeIndex] = useState(-1);
+  const [frameworkStarted, setFrameworkStarted] = useState(false);
+  const themeTimersRef = useRef([]);
+
+  const draft = getArticleDraft(item.id);
 
   useEffect(() => {
     setVisibleTimestamps(1);
     setVisibleKnowledge(0);
+    setPhase("init");
+    setConclusionStarted(false);
+    setThemeIndex(-1);
+    setFrameworkStarted(false);
+    themeTimersRef.current.forEach(clearTimeout);
+    themeTimersRef.current = [];
+
     const timers = [
       window.setTimeout(() => setVisibleTimestamps(2), 300),
       window.setTimeout(() => setVisibleTimestamps(3), 600),
@@ -503,17 +562,52 @@ function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
       window.setTimeout(() => setVisibleKnowledge(1), 1200),
       window.setTimeout(() => setVisibleKnowledge(2), 1500),
       window.setTimeout(() => setVisibleKnowledge(3), 1800),
+      // Deep analysis phases
+      window.setTimeout(() => setPhase("loading"), 2200),
+      window.setTimeout(() => {
+        setPhase("conclusion");
+        setConclusionStarted(true);
+      }, 5200),
     ];
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      themeTimersRef.current.forEach(clearTimeout);
+    };
   }, [item.id]);
 
-  // 将时间戳转换为时间段格式
+  // Cascade theme sections after conclusion finishes
+  useEffect(() => {
+    if (phase !== "themes" || !draft) return;
+    const sections = draft.themeSections;
+    if (themeIndex < 0 || themeIndex >= sections.length) return;
+    const section = sections[themeIndex];
+    const paragraphs = section.paragraphs;
+    const totalChars = paragraphs.reduce((sum, p) => sum + p.length, 0);
+    const duration = Math.min(Math.max(totalChars * 30, 3000), 8000);
+    const timer = setTimeout(() => {
+      if (themeIndex < sections.length - 1) {
+        setThemeIndex(themeIndex + 1);
+      } else {
+        setPhase("framework");
+        setFrameworkStarted(true);
+      }
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [phase, themeIndex, draft]);
+
+  const handleConclusionDone = () => {
+    if (draft && draft.themeSections.length > 0) {
+      setPhase("themes");
+      setThemeIndex(0);
+    } else {
+      setPhase("framework");
+      setFrameworkStarted(true);
+    }
+  };
+
   const timeRanges = item.ai.timestamps.map((stamp, index, arr) => {
     const nextTime = index < arr.length - 1 ? arr[index + 1].time : item.time;
-    return {
-      ...stamp,
-      range: `${stamp.time} - ${nextTime}`,
-    };
+    return { ...stamp, range: `${stamp.time} - ${nextTime}` };
   });
 
   return (
@@ -618,11 +712,109 @@ function AiSummarySheet({ item, onClose, onJump, onOpenVideo, onOpenSave }) {
                 )}
               </section>
             )}
+
+            {/* Deep Analysis section */}
+            {draft && phase !== "init" && (
+              <section className="mb-6">
+                <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-zinc-950">
+                  <FileText size={20} className="text-violet-500" />
+                  深度解析
+                </div>
+
+                {/* Title / Author / URL card */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 rounded-xl bg-gradient-to-br from-violet-50 to-fuchsia-50 p-4 ring-1 ring-violet-100">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-violet-400">Title / Author / URL</div>
+                  <div className="mt-1.5 text-[15px] font-bold text-zinc-950">{draft.meta.title}</div>
+                  <div className="mt-1 text-[13px] text-zinc-600">@{draft.meta.author}</div>
+                </motion.div>
+
+                {/* Loading shimmer */}
+                {phase === "loading" && (
+                  <div className="mb-4 rounded-xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+                    <div className="mb-3 flex items-center gap-2 text-xs text-zinc-400">
+                      <Loader2 size={14} className="animate-spin text-violet-400" />
+                      <span>AI 正在深度解析中...</span>
+                    </div>
+                    <ShimmerLoader lines={4} />
+                  </div>
+                )}
+
+                {/* Core conclusion */}
+                {(phase === "conclusion" || phase === "themes" || phase === "framework" || phase === "done") && (
+                  <div className="mb-4 rounded-xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">一句核心结论</div>
+                    <StreamingText
+                      text={draft.coreConclusion}
+                      started={conclusionStarted}
+                      speed={35}
+                      className="text-[14px] leading-relaxed text-zinc-700"
+                    />
+                    {conclusionStarted && phase === "conclusion" && (
+                      <ConclusionWatcher text={draft.coreConclusion} onDone={handleConclusionDone} />
+                    )}
+                  </div>
+                )}
+
+                {/* Theme sections */}
+                {(phase === "themes" || phase === "framework" || phase === "done") && draft.themeSections.map((section, idx) => {
+                  const isActive = idx <= themeIndex;
+                  if (!isActive) return null;
+                  return (
+                    <div key={section.title} className="mb-4 rounded-xl bg-zinc-50 p-4 ring-1 ring-zinc-100">
+                      <div className="mb-2 text-[13px] font-bold text-zinc-800">{section.title}</div>
+                      {section.paragraphs.map((para, pIdx) => (
+                        <StreamingText
+                          key={`${section.title}-${pIdx}`}
+                          text={para}
+                          started={idx < themeIndex || (idx === themeIndex)}
+                          speed={25}
+                          className="mb-2 text-[13px] leading-[1.8] text-zinc-600"
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {/* Framework section */}
+                {(phase === "framework" || phase === "done") && draft.frameworkSection && (
+                  <div className="mb-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 ring-1 ring-amber-100">
+                    <div className="mb-2 text-[13px] font-bold text-amber-700">{draft.frameworkSection.title}</div>
+                    {draft.frameworkSection.paragraphs.map((para, pIdx) => (
+                      <StreamingText
+                        key={`fw-${pIdx}`}
+                        text={para}
+                        started={frameworkStarted}
+                        speed={25}
+                        className="mb-2 text-[13px] leading-[1.8] text-zinc-700"
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
   );
+}
+
+function ConclusionWatcher({ text, onDone }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCount((prev) => {
+        if (prev >= text.length) {
+          clearInterval(timer);
+          onDone();
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 35);
+    return () => clearInterval(timer);
+  }, [text, onDone]);
+  return null;
 }
 
 function SaveSheet({ item, sections, onClose, onCreateSection, onSave }) {
