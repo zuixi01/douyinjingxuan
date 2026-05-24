@@ -1147,61 +1147,72 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
         <AnimatePresence>
           {controlsVisible ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0">
+              {/* 顶部按钮栏 */}
               <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-4 text-white">
-                <button type="button" data-interactive="true" onClick={onBack} className="rounded-full bg-black/35 p-2 backdrop-blur transition hover:bg-black/55 active:scale-95">
-                  <ArrowLeft size={20} />
+                <button type="button" data-interactive="true" onClick={onBack} className="flex h-10 w-10 items-center justify-center transition active:scale-90">
+                  <ArrowLeft size={24} />
                 </button>
-                <div className="flex items-center gap-2">
-                  <button type="button" data-interactive="true" className="rounded-full bg-black/35 px-3 py-2 text-sm font-semibold backdrop-blur transition hover:bg-black/55 active:scale-95">
-                    听
+                <div className="flex items-center gap-3">
+                  <button type="button" data-interactive="true" className="flex h-10 w-10 items-center justify-center transition active:scale-90">
+                    <span className="text-2xl">🎧</span>
                   </button>
-                  <button type="button" data-interactive="true" onClick={() => openAiPanel()} className="rounded-full bg-black/35 px-3 py-2 text-sm font-semibold backdrop-blur transition hover:bg-black/55 active:scale-95">
-                    <span className="flex items-center gap-1">
-                      <Sparkles size={14} className="text-cyan-300" />
-                      AI
-                    </span>
+                  <button type="button" data-interactive="true" onClick={() => openAiPanel()} className="flex h-10 w-10 items-center justify-center transition active:scale-90">
+                    <Sparkles size={24} className="text-cyan-300" />
                   </button>
-                  <button type="button" data-interactive="true" onClick={isLandscape ? (cinemaMode ? exitCinemaMode : enterCinemaMode) : undefined} className="rounded-full bg-black/35 p-2 backdrop-blur transition hover:bg-black/55 active:scale-95" aria-label={isLandscape ? (cinemaMode ? "退出横屏观看" : "横屏观看") : "搜索"}>
-                    {isLandscape ? (cinemaMode ? <X size={18} /> : <Maximize2 size={18} />) : <Search size={18} />}
+                  <button type="button" data-interactive="true" className="flex h-10 w-10 items-center justify-center transition active:scale-90">
+                    <Search size={24} />
                   </button>
                 </div>
               </div>
 
-              <div className={`absolute right-3 flex flex-col items-center gap-4 text-white ${cinemaMode ? "bottom-24" : "bottom-32"}`}>
-                {[{ icon: Heart, label: "2.8万" }, { icon: MessageCircle, label: "534" }, { icon: ThumbsUp, label: "370" }, { icon: Bookmark, label: "1.1万" }].map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <button key={action.label} type="button" data-interactive="true" className="flex flex-col items-center gap-1 text-xs font-semibold transition hover:scale-105 active:scale-95">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/35 backdrop-blur">
-                        <Icon size={22} />
-                      </div>
-                      <span>{action.label}</span>
-                    </button>
-                  );
-                })}
+              {/* 右侧互动按钮 */}
+              <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5 text-white">
+                <button type="button" data-interactive="true" className="flex flex-col items-center gap-1 transition active:scale-90">
+                  <Heart size={32} />
+                  <span className="text-xs font-medium">1.4万</span>
+                </button>
+                <button type="button" data-interactive="true" className="flex flex-col items-center gap-1 transition active:scale-90">
+                  <MessageCircle size={32} />
+                  <span className="text-xs font-medium">446</span>
+                </button>
+                <button type="button" data-interactive="true" className="flex flex-col items-center gap-1 transition active:scale-90">
+                  <ThumbsUp size={32} />
+                  <span className="text-xs font-medium">577</span>
+                </button>
+                <button type="button" data-interactive="true" className="flex flex-col items-center gap-1 transition active:scale-90">
+                  <Bookmark size={32} />
+                  <span className="text-xs font-medium">1879</span>
+                </button>
+                <button type="button" data-interactive="true" className="flex flex-col items-center gap-1 transition active:scale-90">
+                  <MoreHorizontal size={32} />
+                </button>
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
-                <div className="flex items-end justify-between gap-4">
-                  <div className="max-w-[72%]">
-                    <div className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">双击视频看 AI</div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-zinc-950">{item.author}</span>
-                      <button type="button" data-interactive="true" className="rounded-full bg-cyan-400 px-3 py-1 text-sm font-black text-zinc-950 transition hover:bg-cyan-300 active:scale-95">
+              {/* 底部信息栏 */}
+              <div className="absolute inset-x-0 bottom-0 px-4 pb-6">
+                <div className="flex items-end justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-yellow-500 text-xl font-black text-white">
+                        {item.author[0]}
+                      </div>
+                      <span className="text-base font-bold text-white">{item.author}</span>
+                      <button type="button" data-interactive="true" className="rounded-md bg-red-500 px-4 py-1 text-sm font-bold text-white transition active:scale-95">
                         关注
                       </button>
                     </div>
-                    <div className="mt-3 text-lg font-black leading-snug text-white">{item.title}</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="rounded-full bg-black/35 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur">
-                          #{tag}
-                        </span>
-                      ))}
+                    <div className="text-sm font-medium leading-relaxed text-white line-clamp-2">
+                      {item.title}
                     </div>
                   </div>
-                  <button type="button" data-interactive="true" onClick={() => onOpenSave(item)} className="rounded-2xl bg-white/15 px-3 py-2 text-sm font-bold text-white backdrop-blur transition hover:bg-white/25 active:scale-95">
-                    添加到知识库
+                  <button
+                    type="button"
+                    data-interactive="true"
+                    onClick={cinemaMode ? exitCinemaMode : enterCinemaMode}
+                    className="flex shrink-0 flex-col items-center gap-1 rounded-xl bg-black/40 px-3 py-2 backdrop-blur transition active:scale-95"
+                  >
+                    <Maximize2 size={20} className="text-white" />
+                    <span className="text-xs font-medium text-white">全屏观看</span>
                   </button>
                 </div>
               </div>
@@ -1253,123 +1264,6 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
             </motion.div>
           ) : null}
         </AnimatePresence>
-      </div>
-
-      <div className={`space-y-3 bg-zinc-950/95 px-4 py-4 text-white ${cinemaMode ? "shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6" : ""}`}>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            data-interactive="true"
-            onClick={togglePlayback}
-            aria-label={isPlaying ? "暂停视频" : "播放视频"}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-zinc-950 transition hover:scale-105 active:scale-95"
-          >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} fill="currentColor" />}
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-white/70">
-              <span>{formatPlaybackTime(playheadSeconds)}</span>
-              <span>{formatPlaybackTime(durationSeconds || timeToSeconds(item.time))}</span>
-            </div>
-            <input
-              data-interactive="true"
-              aria-label="播放进度"
-              type="range"
-              min="0"
-              max={Math.max(durationSeconds || timeToSeconds(item.time), 1)}
-              step="0.1"
-              value={clamp(playheadSeconds, 0, durationSeconds || timeToSeconds(item.time) || 1)}
-              onChange={(event) => handleSeek(event.target.value)}
-              onPointerDown={() => revealControls(true)}
-              className="h-1.5 w-full cursor-pointer accent-cyan-400"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-          {item.ai.timestamps.map((stamp) => (
-            <button
-              key={stamp.time}
-              type="button"
-              data-interactive="true"
-              onClick={() => {
-                onJump(stamp.time);
-                handleSeek(timeToSeconds(stamp.time));
-              }}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition active:scale-95 ${activeStamp?.time === stamp.time ? "bg-cyan-400 text-zinc-950" : "bg-white/10 text-white hover:bg-white/20"}`}
-            >
-              {stamp.time}
-            </button>
-          ))}
-          <button
-            type="button"
-            data-interactive="true"
-            onClick={() => {
-              setMuted((value) => !value);
-              revealControls(true);
-            }}
-            aria-label={muted || volume === 0 ? "取消静音" : "静音"}
-            className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold transition hover:bg-white/20 active:scale-95"
-          >
-            {muted || volume === 0 ? "静音" : "有声"}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
-          <button
-            type="button"
-            data-interactive="true"
-            onClick={() => {
-              setMuted((value) => !value);
-              revealControls(true);
-            }}
-            aria-label={muted || volume === 0 ? "取消静音" : "静音"}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20 active:scale-95"
-          >
-            {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-          <input
-            data-interactive="true"
-            aria-label="音量"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={muted ? 0 : volume}
-            onChange={(event) => handleVolumeChange(event.target.value)}
-            onPointerDown={() => revealControls(true)}
-            className="h-1.5 w-full cursor-pointer accent-cyan-400"
-          />
-        </div>
-
-        <div className={actionGridClassName}>
-          <button type="button" data-interactive="true" onClick={() => onOpenAi(item)} className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
-            AI 速读
-          </button>
-          {isLandscape ? (
-            <button type="button" data-interactive="true" onClick={cinemaMode ? exitCinemaMode : enterCinemaMode} className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
-              <span className="inline-flex items-center gap-2">
-                {cinemaMode ? <X size={16} /> : <Maximize2 size={16} />}
-                {cinemaMode ? "退出" : "横屏"}
-              </span>
-            </button>
-          ) : null}
-          <button type="button" data-interactive="true" className="rounded-2xl bg-white/10 py-3 text-sm font-bold transition hover:bg-white/20 active:scale-95">
-            <span className="inline-flex items-center gap-2">
-              <Share2 size={16} />
-              分享
-            </span>
-          </button>
-          <button type="button" data-interactive="true" onClick={() => onOpenSave(item)} className="rounded-2xl bg-cyan-400 py-3 text-sm font-black text-zinc-950 transition hover:bg-cyan-300 active:scale-95">
-            保存摘要
-          </button>
-        </div>
-
-        <div className="rounded-lg bg-white/5 p-3 ring-1 ring-white/10">
-          <div className="text-xs font-bold text-cyan-300">当前片段</div>
-          <div className="mt-2 text-sm font-semibold text-white">{activeStamp?.label || item.ai.timestamps[0].label}</div>
-          <div className="mt-2 text-xs leading-relaxed text-white/65 line-clamp-2">{item.ai.summary[0]}</div>
-        </div>
       </div>
     </div>
   );
