@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -848,27 +848,29 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
   const [loadProgress, setLoadProgress] = useState(0);
   const [videoOrientation, setVideoOrientation] = useState("portrait");
   const [cinemaMode, setCinemaMode] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [error, setError] = useState(null);
 
-  const clearControlsTimer = () => {
+  const clearControlsTimer = useCallback(() => {
     window.clearTimeout(controlsTimerRef.current);
     controlsTimerRef.current = null;
-  };
+  }, []);
 
-  const revealControls = (pinned = false) => {
+  const revealControls = useCallback((pinned = false) => {
     setControlsVisible(true);
     clearControlsTimer();
     if (!pinned && isPlaying) {
       controlsTimerRef.current = window.setTimeout(() => setControlsVisible(false), PLAYER_CONTROLS_IDLE_MS);
     }
-  };
+  }, [isPlaying, clearControlsTimer]);
 
-  const showFlash = (action) => {
+  const showFlash = useCallback((action) => {
     setFlashAction(action);
     window.clearTimeout(flashTimerRef.current);
     flashTimerRef.current = window.setTimeout(() => setFlashAction(null), 520);
-  };
+  }, []);
 
-  const syncPlayingState = (nextPlaying) => {
+  const syncPlayingState = useCallback((nextPlaying) => {
     setIsPlaying(nextPlaying);
     if (nextPlaying) {
       revealControls(false);
@@ -876,9 +878,9 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
       clearControlsTimer();
       setControlsVisible(true);
     }
-  };
+  }, [revealControls, clearControlsTimer]);
 
-  const togglePlayback = () => {
+  const togglePlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     const nextPlaying = !isPlaying;
@@ -892,9 +894,9 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     }
     syncPlayingState(nextPlaying);
     showFlash(nextPlaying ? "play" : "pause");
-  };
+  }, [isPlaying, syncPlayingState, showFlash]);
 
-  const openAiPanel = () => {
+  const openAiPanel = useCallback(() => {
     clearControlsTimer();
     setControlsVisible(true);
     setAiLoading(true);
@@ -903,7 +905,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
       setAiLoading(false);
       onOpenAi(item);
     }, 80);
-  };
+  }, [clearControlsTimer, onOpenAi, item]);
 
   singleTapActionRef.current = togglePlayback;
   doubleTapActionRef.current = openAiPanel;
@@ -950,8 +952,41 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
 
   // 视频缓冲处理
   const handleWaiting = () => setIsBuffering(true);
-  const handlePlaying = () => setIsBuffering(false);
+  const handlePlaying = () => {
+    setIsBuffering(false);
+    setError(null);
+    setRetryCount(0);
+  };
   const handleCanPlay = () => setIsBuffering(false);
+  const handleError = (e) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const errorCode = video.error?.code;
+    const errorMessage = video.error?.message || 'Unknown error';
+    console.error(`Video error (code ${errorCode}):`, errorMessage);
+
+    // Auto retry for network errors (code 2) up to 3 times
+    if (errorCode === 2 && retryCount < 3) {
+      setRetryCount(prev => prev + 1);
+      setError(null);
+      setIsBuffering(true);
+
+      // Reload the video after a short delay
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          const playPromise = videoRef.current.play();
+          if (playPromise?.catch) {
+            playPromise.catch(() => {});
+          }
+        }
+      }, 1000 * (retryCount + 1)); // Exponential backoff
+    } else {
+      setError(`视频加载失败 (${errorCode || 'unknown'})`);
+      setIsBuffering(false);
+    }
+  };
   const handleProgress = () => {
     const video = videoRef.current;
     if (video && video.buffered.length > 0) {
@@ -982,7 +1017,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     setPlayheadSeconds(video.currentTime || 0);
   };
 
-  const handleSeek = (value) => {
+  const handleSeek = useCallback((value) => {
     const video = videoRef.current;
     const nextValue = clamp(Number(value), 0, durationSeconds || 1);
     if (video) {
@@ -990,16 +1025,16 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     }
     setPlayheadSeconds(nextValue);
     revealControls(true);
-  };
+  }, [durationSeconds, revealControls]);
 
-  const handleVolumeChange = (value) => {
+  const handleVolumeChange = useCallback((value) => {
     const nextValue = clamp(Number(value), 0, 1);
     setVolume(nextValue);
     setMuted(nextValue === 0);
     revealControls(true);
-  };
+  }, [revealControls]);
 
-  const enterCinemaMode = async () => {
+  const enterCinemaMode = useCallback(async () => {
     setCinemaMode(true);
     revealControls(true);
     try {
@@ -1014,9 +1049,9 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     } catch {
       // Orientation lock is optional and browser-dependent.
     }
-  };
+  }, [revealControls]);
 
-  const exitCinemaMode = async () => {
+  const exitCinemaMode = useCallback(async () => {
     setCinemaMode(false);
     revealControls(true);
     try {
@@ -1031,9 +1066,9 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     } catch {
       // Exiting the fixed layer is enough if fullscreen exit fails.
     }
-  };
+  }, [revealControls]);
 
-  const handlePointerDown = (event) => {
+  const handlePointerDown = useCallback((event) => {
     if (isInteractiveTarget(event.target)) {
       pointerStateRef.current = { x: 0, y: 0, moved: false, ignore: true };
       return;
@@ -1045,10 +1080,11 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
       y: clientY,
       moved: false,
       ignore: false,
+      startTime: Date.now(),
     };
-  };
+  }, []);
 
-  const handlePointerMove = (event) => {
+  const handlePointerMove = useCallback((event) => {
     if (pointerStateRef.current.ignore) return;
     const clientX = event.touches?.[0]?.clientX ?? event.clientX;
     const clientY = event.touches?.[0]?.clientY ?? event.clientY;
@@ -1057,16 +1093,21 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     if (Math.hypot(deltaX, deltaY) > TAP_MOVE_THRESHOLD) {
       pointerStateRef.current.moved = true;
     }
-  };
+  }, []);
 
-  const handlePointerUp = (event) => {
+  const handlePointerUp = useCallback((event) => {
     const clientX = event.changedTouches?.[0]?.clientX ?? event.clientX;
     const clientY = event.changedTouches?.[0]?.clientY ?? event.clientY;
+    const deltaTime = Date.now() - (pointerStateRef.current.startTime || Date.now());
 
     if (pointerStateRef.current.moved && !pointerStateRef.current.ignore && !isInteractiveTarget(event.target)) {
       const deltaX = clientX - pointerStateRef.current.x;
       const deltaY = clientY - pointerStateRef.current.y;
-      if (Math.abs(deltaY) > 72 && Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
+      const velocity = Math.hypot(deltaX, deltaY) / deltaTime;
+
+      // More responsive swipe detection: lower threshold for fast swipes
+      const swipeThreshold = velocity > 0.5 ? 40 : 72;
+      if (Math.abs(deltaY) > swipeThreshold && Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
         onSwipe?.(deltaY < 0 ? "next" : "prev");
       }
       pointerStateRef.current = { x: 0, y: 0, moved: false, ignore: false };
@@ -1078,7 +1119,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
     }
     pointerStateRef.current = { x: 0, y: 0, moved: false, ignore: false };
     gestureRef.current?.registerTap();
-  };
+  }, [onSwipe]);
 
   const activeStamp = item.ai.timestamps.reduce((closest, stamp) => {
     if (!closest) return stamp;
@@ -1140,6 +1181,7 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
           onPlaying={handlePlaying}
           onCanPlay={handleCanPlay}
           onProgress={handleProgress}
+          onError={handleError}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_72%_72%,rgba(34,211,238,0.18),transparent_30%)]" />
@@ -1236,7 +1278,41 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-3">
                 <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-                <span className="text-sm font-semibold text-white">加载中...</span>
+                <span className="text-sm font-semibold text-white">
+                  {retryCount > 0 ? `重试中 (${retryCount}/3)...` : '加载中...'}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 错误状态指示器 */}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-3 px-6 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20">
+                  <X size={32} className="text-red-400" />
+                </div>
+                <span className="text-sm font-semibold text-white">{error}</span>
+                <button
+                  type="button"
+                  data-interactive="true"
+                  onClick={() => {
+                    setError(null);
+                    setRetryCount(0);
+                    if (videoRef.current) {
+                      videoRef.current.load();
+                      const playPromise = videoRef.current.play();
+                      if (playPromise?.catch) {
+                        playPromise.catch(() => {});
+                      }
+                    }
+                  }}
+                  className="rounded-full bg-white px-6 py-2 text-sm font-bold text-zinc-950 transition-all active:scale-95"
+                >
+                  重新加载
+                </button>
               </div>
             </motion.div>
           )}
