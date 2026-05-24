@@ -1038,9 +1038,11 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
       pointerStateRef.current = { x: 0, y: 0, moved: false, ignore: true };
       return;
     }
+    const clientX = event.touches?.[0]?.clientX ?? event.clientX;
+    const clientY = event.touches?.[0]?.clientY ?? event.clientY;
     pointerStateRef.current = {
-      x: event.clientX,
-      y: event.clientY,
+      x: clientX,
+      y: clientY,
       moved: false,
       ignore: false,
     };
@@ -1048,17 +1050,22 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
 
   const handlePointerMove = (event) => {
     if (pointerStateRef.current.ignore) return;
-    const deltaX = event.clientX - pointerStateRef.current.x;
-    const deltaY = event.clientY - pointerStateRef.current.y;
+    const clientX = event.touches?.[0]?.clientX ?? event.clientX;
+    const clientY = event.touches?.[0]?.clientY ?? event.clientY;
+    const deltaX = clientX - pointerStateRef.current.x;
+    const deltaY = clientY - pointerStateRef.current.y;
     if (Math.hypot(deltaX, deltaY) > TAP_MOVE_THRESHOLD) {
       pointerStateRef.current.moved = true;
     }
   };
 
   const handlePointerUp = (event) => {
+    const clientX = event.changedTouches?.[0]?.clientX ?? event.clientX;
+    const clientY = event.changedTouches?.[0]?.clientY ?? event.clientY;
+
     if (pointerStateRef.current.moved && !pointerStateRef.current.ignore && !isInteractiveTarget(event.target)) {
-      const deltaX = event.clientX - pointerStateRef.current.x;
-      const deltaY = event.clientY - pointerStateRef.current.y;
+      const deltaX = clientX - pointerStateRef.current.x;
+      const deltaY = clientY - pointerStateRef.current.y;
       if (Math.abs(deltaY) > 72 && Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
         onSwipe?.(deltaY < 0 ? "next" : "prev");
       }
@@ -1098,10 +1105,14 @@ export function VideoPlayerSurface({ item, currentTime, onBack, onOpenAi, onOpen
         role="button"
         tabIndex={0}
         aria-label="视频播放区域"
-        className={`relative w-full touch-manipulation overflow-hidden bg-black outline-none ${playerFrameClassName}`}
+        className={`relative w-full touch-none select-none overflow-hidden bg-black outline-none ${playerFrameClassName}`}
+        style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
