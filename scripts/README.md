@@ -1,110 +1,53 @@
-# 知识库构建工具
+# 历史知识库缓存工具
 
-## 功能说明
+`scripts/build-knowledge-base.cjs` 从 `cache/mp3/` 读取已经存在的解析稿、知识库和转写元数据，用于扫描、导出或生成历史格式的数据文件。它不会下载视频，也不会调用模型或执行音频转写。
 
-本工具用于从缓存的视频解析数据中构建结构化的知识库。
+**重要：`--build` 写入的是 `src/feed-data.js`。当前应用实际读取 `src/data/feed.js`，因此运行脚本不会自动更新主界面。** 在统一这两个入口前，应把脚本视为历史数据工具；不要直接覆盖当前数据或宣称已经接入。
 
-### 支持的功能
+## 使用条件
 
-- **扫描缓存**: 检测可用的视频缓存文件
-- **构建数据**: 从缓存生成 `feed-data.js`
-- **导出 Markdown**: 将知识库导出为 Markdown 文件
-- **查看统计**: 显示缓存文件的统计信息
+在项目根目录使用 Node.js 22.x（至少 22.13）或 24+ 运行，无需为脚本单独安装依赖。输入内容的来源、准确性与可再分发许可需要单独确认，见 [素材清单](../docs/ASSETS.md)。
 
-## 使用方法
+```text
+cache/mp3/
+├── {id} - 解析稿.md
+├── {id} - 知识库.md
+├── {id} - 逐字稿.md
+├── {id} - 原始逐字稿.txt
+├── {id} - 转写信息.json
+└── {id}.mp3
+```
 
-### 前置条件
+脚本按 `VIDEO_CONFIG` 中的 ID 与文件名匹配。发现解析稿且 ID 已配置时会列出该条目；生成数据需要解析稿，知识库或时长元数据缺失时可能使用默认字段。扫描显示的 `complete` 只表示解析稿与知识库存在，不代表内容准确、来源获授权或主应用可播放。
 
-1. 安装 Node.js (v16+)
-2. 确保 `cache/mp3/` 目录下有解析数据
-
-### 命令列表
+## 命令
 
 ```bash
-# 显示帮助
+# 帮助、扫描与统计：只读输入
 node scripts/build-knowledge-base.cjs --help
-
-# 扫描可用的视频缓存
 node scripts/build-knowledge-base.cjs --scan
+node scripts/build-knowledge-base.cjs --info
 
-# 构建 feed-data.js
-node scripts/build-knowledge-base.cjs --build
-
-# 导出所有视频知识库为 Markdown
-node scripts/build-knowledge-base.cjs --export-all
-
-# 导出指定视频的知识库
+# 将指定条目的整理结果输出到终端
 node scripts/build-knowledge-base.cjs --video darwin
 
-# 显示缓存统计信息
-node scripts/build-knowledge-base.cjs --info
+# 写入 exports/{id}.md 与 exports/README.md，可能覆盖同名文件
+node scripts/build-knowledge-base.cjs --export-all
+
+# 覆盖历史数据文件 src/feed-data.js，不更新当前主应用数据源
+node scripts/build-knowledge-base.cjs --build
 ```
 
-## 视频 ID 列表
+仓库中的脚本扩展名是 `.cjs`，表示在项目的 ESM 配置中使用 CommonJS 模块。
 
-| ID | 标题 | 分类 |
-|---|---|---|
-| darwin | 达尔文的死敌 | 科普 |
-| codex | Codex 零基础教程 | AI |
-| mars | 地球上的火星 | 旅行 |
-| academic | 论文造假真相 | 教育 |
-| money | 研究赚钱 | 成长 |
-| detective | 天才车手凶杀案 | 故事 |
-| ai-career | AI 职场破局 | 职场 |
-| claude-code | Claude Code 教程 | AI |
-| uk-vlog | 英国留学日记 | 生活 |
-| life-motivation | 人生逆袭 | 社会 |
+目前配置的 ID：`darwin`、`codex`、`mars`、`academic`、`money`、`detective`、`ai-career`、`claude-code`、`uk-vlog`、`life-motivation`。
 
-## 缓存文件结构
+## 添加或替换内容
 
-每个视频的缓存文件位于 `cache/mp3/` 目录下：
+1. 先确认你有权使用、修改和再分发相应媒体与文本，更新素材清单。
+2. 为脚本整理输入时，更新 `VIDEO_CONFIG` 并按对应 ID 放置文件。
+3. 使用 `--scan` 检查文件匹配，使用 `--video <id>` 审阅导出结果。
+4. 若目标是更新当前应用，还需明确更新 `src/data/feed.js`；只有修改历史根页面时才需检查 `article-drafts.js` 的解析稿导入映射。
+5. 在主应用中核对标题、作者、摘要、时间戳和视频路径，执行相关测试与 `npm run build`。
 
-```
-cache/mp3/
-├── {video-id} - 解析稿.md      # 带时间戳的内容分析
-├── {video-id} - 知识库.md      # 结构化知识摘要
-├── {video-id} - 逐字稿.md      # 完整文字转录
-├── {video-id} - 原始逐字稿.txt  # 原始转录文本
-├── {video-id} - 转写信息.json   # 转录元数据
-└── {video-id}.mp3               # 音频文件
-```
-
-## Windows 部署
-
-### 方法一：直接运行
-
-1. 安装 Node.js: https://nodejs.org/
-2. 克隆项目
-3. 打开命令提示符或 PowerShell
-4. 运行命令：
-
-```cmd
-cd douyinjingxuan
-node scripts/build-knowledge-base.cjs --scan
-```
-
-### 方法二：使用 WSL (推荐)
-
-1. 安装 WSL: https://docs.microsoft.com/windows/wsl/install
-2. 在 WSL 中安装 Node.js
-3. 克隆项目并运行
-
-## 添加新视频
-
-1. 在 `scripts/build-knowledge-base.cjs` 的 `VIDEO_CONFIG` 中添加视频配置
-2. 将解析文件放入 `cache/mp3/` 目录
-3. 运行 `node scripts/build-knowledge-base.cjs --build`
-
-## 常见问题
-
-### Q: 为什么使用 .cjs 扩展名？
-
-A: 因为项目的 `package.json` 设置了 `"type": "module"`，使用 `.cjs` 可以让脚本以 CommonJS 模式运行。
-
-### Q: 如何在浏览器中使用知识库？
-
-A: 运行 `--build` 命令后，会生成 `src/feed-data.js`，项目会自动使用这些数据。
-
-### Q: 导出的 Markdown 文件在哪里？
-
-A: 导出的文件位于项目根目录的 `exports/` 文件夹中。
+当前默认应用和构建不依赖 `cache/`；轻量克隆可排除整个目录。使用本脚本或根目录历史页面前，需要取回对应缓存；缺少输入时脚本不能生成有效历史数据。未经核实的转写、作者字段和示例指标不能充当真实来源或授权证明。导出文件可能包含第三方内容或个人笔记，不应未经检查提交到仓库或发布。

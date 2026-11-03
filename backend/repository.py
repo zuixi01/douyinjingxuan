@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import RLock
 from typing import Any
 from uuid import uuid4
 
@@ -157,9 +159,12 @@ class KnowledgeRepository(ABC):
 
 
 class JsonKnowledgeRepository(KnowledgeRepository):
+    """JSON storage for one process; use a database for multiple API workers."""
+
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = RLock()
 
     def _read(self) -> dict[str, Any]:
         if not self.file_path.exists():
@@ -169,69 +174,88 @@ class JsonKnowledgeRepository(KnowledgeRepository):
         return json.loads(self.file_path.read_text(encoding="utf-8"))
 
     def _write(self, payload: dict[str, Any]) -> None:
-        self.file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.file_path.parent,
+                prefix=f".{self.file_path.name}.", suffix=".tmp", delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+                json.dump(payload, temporary_file, ensure_ascii=False, indent=2)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, self.file_path)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
 
     def list_sections(self) -> list[dict[str, Any]]:
-        return self._read()["sections"]
+        with self._lock:
+            return self._read()["sections"]
 
     def create_section(self, name: str) -> dict[str, Any]:
-        payload = self._read()
-        normalized = name.strip()
-        if not normalized:
-            raise HTTPException(status_code=400, detail="分区名称不能为空")
-        if any(section["name"] == normalized for section in payload["sections"]):
-            raise HTTPException(status_code=409, detail="该分区已存在")
+        with self._lock:
+            payload = self._read()
+            normalized = name.strip()
+            if not normalized:
+                raise HTTPException(status_code=400, detail="分区名称不能为空")
+            if any(section["name"] == normalized for section in payload["sections"]):
+                raise HTTPException(status_code=409, detail="该分区已存在")
 
-        section = {"id": f"section-{uuid4().hex[:8]}", "name": normalized, "desc": "自定义知识分区"}
-        payload["sections"] = [section, *payload["sections"]]
-        self._write(payload)
-        return section
+            section = {"id": f"section-{uuid4().hex[:8]}", "name": normalized, "desc": "自定义知识分区"}
+            payload["sections"] = [section, *payload["sections"]]
+            self._write(payload)
+            return section
 
     def list_cards(self, params: SearchParams) -> list[dict[str, Any]]:
-        payload = self._read()
-        return _filter_cards(payload["cards"], params)
+        with self._lock:
+            payload = self._read()
+            return _filter_cards(payload["cards"], params)
 
     def save_card(self, payload: CardCreate) -> tuple[dict[str, Any], bool]:
-        data = self._read()
-        section = next((entry for entry in data["sections"] if entry["id"] == payload.sectionId), None)
-        if not section:
-            raise HTTPException(status_code=404, detail="未找到目标分区")
+        with self._lock:
+            data = self._read()
+            section = next((entry for entry in data["sections"] if entry["id"] == payload.sectionId), None)
+            if not section:
+                raise HTTPException(status_code=404, detail="未找到目标分区")
 
-        existing = next(
-            (
-                entry
-                for entry in data["cards"]
-                if entry["itemId"] == payload.itemId and entry["sectionId"] == payload.sectionId
-            ),
-            None,
-        )
-        if existing:
-            return existing, True
+            existing = next(
+                (
+                    entry
+                    for entry in data["cards"]
+                    if entry["itemId"] == payload.itemId and entry["sectionId"] == payload.sectionId
+                ),
+                None,
+            )
+            if existing:
+                return existing, True
 
-        card = {"id": f"{payload.sectionId}-{payload.itemId}", "sectionName": section["name"], **payload.model_dump()}
-        data["cards"] = [card, *data["cards"]]
-        self._write(data)
-        return card, False
+            card = {"id": f"{payload.sectionId}-{payload.itemId}", "sectionName": section["name"], **payload.model_dump()}
+            data["cards"] = [card, *data["cards"]]
+            self._write(data)
+            return card, False
 
     def delete_card(self, item_id: str, section_id: str) -> None:
-        data = self._read()
-        data["cards"] = [
-            entry
-            for entry in data["cards"]
-            if not (entry["itemId"] == item_id and entry["sectionId"] == section_id)
-        ]
-        self._write(data)
+        with self._lock:
+            data = self._read()
+            data["cards"] = [
+                entry
+                for entry in data["cards"]
+                if not (entry["itemId"] == item_id and entry["sectionId"] == section_id)
+            ]
+            self._write(data)
 
     def create_text_card(self, payload: TextIntakeRequest) -> dict[str, Any]:
-        data = self._read()
-        section = next((entry for entry in data["sections"] if entry["id"] == payload.sectionId), None)
-        if not section:
-            raise HTTPException(status_code=404, detail="未找到目标分区")
+        with self._lock:
+            data = self._read()
+            section = next((entry for entry in data["sections"] if entry["id"] == payload.sectionId), None)
+            if not section:
+                raise HTTPException(status_code=404, detail="未找到目标分区")
 
-        card = build_text_card(payload, section)
-        data["cards"] = [card, *data["cards"]]
-        self._write(data)
-        return card
+            card = build_text_card(payload, section)
+            data["cards"] = [card, *data["cards"]]
+            self._write(data)
+            return card
 
 
 class SqlAlchemyKnowledgeRepository(KnowledgeRepository):
@@ -408,9 +432,12 @@ def _filter_cards(cards: list[dict[str, Any]], params: SearchParams) -> list[dic
 
 
 def build_repository(base_dir: Path) -> KnowledgeRepository:
-    storage_backend = os.getenv("KNOWLEDGE_STORAGE_BACKEND", "json").lower()
-    database_url = os.getenv("DATABASE_URL", f"sqlite:///{(base_dir / 'data' / 'knowledge.db').as_posix()}")
-
+    storage_backend = os.getenv("KNOWLEDGE_STORAGE_BACKEND", "json").strip().lower()
+    if storage_backend not in {"json", "database"}:
+        raise ValueError("KNOWLEDGE_STORAGE_BACKEND must be 'json' or 'database'")
+    data_dir = Path(os.getenv("KNOWLEDGE_DATA_DIR", str(base_dir / "data"))).expanduser().resolve()
+    data_dir.mkdir(parents=True, exist_ok=True)
     if storage_backend == "database":
+        database_url = os.getenv("DATABASE_URL", f"sqlite:///{(data_dir / 'knowledge.db').as_posix()}")
         return SqlAlchemyKnowledgeRepository(database_url)
-    return JsonKnowledgeRepository(base_dir / "data" / "knowledge.json")
+    return JsonKnowledgeRepository(data_dir / "knowledge.json")

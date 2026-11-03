@@ -1757,21 +1757,33 @@ export default function DouyinFeaturedUIDemo() {
   const [knowledgeMode, setKnowledgeMode] = useState("notes");
   const [sections, setSections] = useState(() => readStorage(STORAGE_KEYS.sections, DEFAULT_SECTIONS));
   const [savedItems, setSavedItems] = useState(() => readStorage(STORAGE_KEYS.saved, INITIAL_SAVED_ITEMS));
+  const [storageSource, setStorageSource] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-    knowledgeService.loadInitialData(DEFAULT_SECTIONS, INITIAL_SAVED_ITEMS).then((payload) => {
+    knowledgeService.loadInitialData(sections, savedItems).then((payload) => {
       if (!mounted) return;
-      setSections(payload.sections);
-      setSavedItems(payload.savedItems);
+      if (payload.source === "remote") {
+        setSections(payload.sections);
+        setSavedItems(payload.savedItems);
+      }
+      setStorageSource(payload.source);
+    }).catch((error) => {
+      if (!mounted) return;
+      setStorageSource("error");
+      setToast(`知识库加载失败：${error.message}。请刷新后重试，本地记录已保留`);
     });
     return () => {
       mounted = false;
     };
   }, []);
 
-  useEffect(() => writeStorage(STORAGE_KEYS.sections, sections), [sections]);
-  useEffect(() => writeStorage(STORAGE_KEYS.saved, savedItems), [savedItems]);
+  useEffect(() => {
+    if (storageSource === "local") writeStorage(STORAGE_KEYS.sections, sections);
+  }, [sections, storageSource]);
+  useEffect(() => {
+    if (storageSource === "local") writeStorage(STORAGE_KEYS.saved, savedItems);
+  }, [savedItems, storageSource]);
   useEffect(() => {
     if (!toast) return undefined;
     const timer = window.setTimeout(() => setToast(""), 1800);
@@ -1786,8 +1798,26 @@ export default function DouyinFeaturedUIDemo() {
     window.requestAnimationFrame(() => safeScrollToTop());
   };
 
+  const performKnowledgeOperation = async (operation) => {
+    let result;
+    if (storageSource !== "local" && storageSource !== "remote") {
+      result = {
+        ok: false,
+        message: storageSource === "error" ? "知识库未成功加载，请刷新后重试" : "知识库正在加载，请稍后重试",
+      };
+    } else {
+      try {
+        result = await operation();
+      } catch (error) {
+        result = { ok: false, message: `操作失败：${error.message}，页面记录未更改` };
+      }
+    }
+    if (result.ok === false) setToast(result.message);
+    return result;
+  };
+
   const handleCreateSection = async (name) => {
-    const result = await knowledgeService.createSection(sections, name);
+    const result = await performKnowledgeOperation(() => knowledgeService.createSection(sections, name));
     if (result.ok) {
       setSections(result.sections);
       setToast(result.message);
@@ -1796,7 +1826,7 @@ export default function DouyinFeaturedUIDemo() {
   };
 
   const handleSave = async (item, sectionId) => {
-    const result = await knowledgeService.saveItem(savedItems, item, sectionId, sections);
+    const result = await performKnowledgeOperation(() => knowledgeService.saveItem(savedItems, item, sectionId, sections));
     if (result.ok) {
       setSavedItems(result.savedItems);
       setToast(result.message);
@@ -1806,13 +1836,15 @@ export default function DouyinFeaturedUIDemo() {
   };
 
   const handleDeleteItem = async (itemId, sectionId) => {
-    const updated = await knowledgeService.removeItem(savedItems, itemId, sectionId);
-    setSavedItems(updated);
-    setToast("已从知识库移除");
+    const updated = await performKnowledgeOperation(() => knowledgeService.removeItem(savedItems, itemId, sectionId));
+    if (Array.isArray(updated)) {
+      setSavedItems(updated);
+      setToast("已从知识库移除");
+    }
   };
 
   const handleCreateTextCard = async (payload) => {
-    const result = await knowledgeService.createTextCard(savedItems, sections, payload);
+    const result = await performKnowledgeOperation(() => knowledgeService.createTextCard(savedItems, sections, payload));
     if (result.ok) {
       setSavedItems(result.savedItems);
       setKnowledgeMode("knowledge");

@@ -1,18 +1,29 @@
+import pytest
 from fastapi.testclient import TestClient
 
-import backend.app as backend_app
-from backend.repository import SqlAlchemyKnowledgeRepository
+from backend.repository import JsonKnowledgeRepository, SqlAlchemyKnowledgeRepository
 from backend.schemas import SearchParams, TextIntakeRequest
 
 
-def setup_function():
-    data_file = backend_app.BASE_DIR / "data" / "knowledge.json"
-    if data_file.exists():
-        data_file.unlink()
+@pytest.fixture
+def backend_app(tmp_path, monkeypatch):
+    # Set the environment before the first import, so even application setup
+    # cannot touch a configured database or the developer's knowledge file.
+    monkeypatch.setenv("KNOWLEDGE_STORAGE_BACKEND", "json")
+    monkeypatch.setenv("KNOWLEDGE_DATA_DIR", str(tmp_path / "startup"))
+    monkeypatch.delenv("KNOWLEDGE_CORS_ORIGINS", raising=False)
+    import backend.app as module
+
+    monkeypatch.setattr(module, "repository", JsonKnowledgeRepository(tmp_path / "knowledge.json"))
+    return module
 
 
-def test_sections_and_cards_flow():
-    client = TestClient(backend_app.app)
+@pytest.fixture
+def client(backend_app):
+    return TestClient(backend_app.app)
+
+
+def test_sections_and_cards_flow(client):
 
     health = client.get("/api/health")
     assert health.status_code == 200
@@ -72,8 +83,7 @@ def test_sections_and_cards_flow():
     assert deleted.json()["savedItems"] == []
 
 
-def test_text_intake_flow():
-    client = TestClient(backend_app.app)
+def test_text_intake_flow(client):
     section_id = client.get("/api/sections").json()["sections"][0]["id"]
 
     response = client.post(
@@ -116,3 +126,24 @@ def test_database_repository_supports_text_cards(tmp_path):
     assert len(cards) == 1
     assert card["ai"]["keywords"] == ["数据库", "测试"]
     assert card["ai"]["relations"]
+
+
+def test_cors_allows_local_development_only(client):
+    for origin in ("http://localhost:5173", "http://127.0.0.1:4173"):
+        response = client.options(
+            "/api/cards", headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+        )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == origin
+        assert "access-control-allow-credentials" not in response.headers
+
+    response = client.options(
+        "/api/cards", headers={"Origin": "https://untrusted.example", "Access-Control-Request-Method": "POST"},
+    )
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_origins_can_be_configured(backend_app, monkeypatch):
+    monkeypatch.setenv("KNOWLEDGE_CORS_ORIGINS", " https://knowledge.example, http://localhost:3000, ")
+    assert backend_app.configured_cors_origins() == ["https://knowledge.example", "http://localhost:3000"]
