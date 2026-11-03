@@ -7,11 +7,11 @@
  * 支持：读取缓存 → 解析内容 → 生成 feed-data.js → 导出 Markdown
  *
  * 使用方法：
- *   node scripts/build-knowledge-base.js --help
- *   node scripts/build-knowledge-base.js --scan
- *   node scripts/build-knowledge-base.js --build
- *   node scripts/build-knowledge-base.js --export-all
- *   node scripts/build-knowledge-base.js --video darwin
+ *   node scripts/build-knowledge-base.cjs --help
+ *   node scripts/build-knowledge-base.cjs --scan
+ *   node scripts/build-knowledge-base.cjs --build
+ *   node scripts/build-knowledge-base.cjs --export-all
+ *   node scripts/build-knowledge-base.cjs --video darwin
  */
 
 const fs = require('fs');
@@ -430,6 +430,9 @@ function buildFeedData() {
 
   const videos = scanAvailableVideos();
   console.log(`找到 ${videos.length} 个视频\n`);
+  if (videos.length === 0) {
+    throw new Error('没有可构建的视频缓存，保留现有 src/feed-data.js。');
+  }
 
   const feedItems = [];
 
@@ -439,7 +442,7 @@ function buildFeedData() {
       feedItems.push(data);
       console.log(`  ✓ ${video.id} - ${data.title}`);
     } else {
-      console.log(`  ✗ ${video.id} - 构建失败`);
+      throw new Error(`${video.id} 构建失败，保留现有 src/feed-data.js。`);
     }
   }
 
@@ -457,51 +460,17 @@ function buildFeedData() {
  * 生成 feed-data.js 文件内容
  */
 function generateFeedDataJs(feedItems) {
-  let js = `// 检测是否为移动设备
-const isMobile = typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (typeof window !== "undefined" && window.innerWidth < 768));
+  const sections = [
+    { id: 'default', name: '默认收藏', desc: '统一回看高价值内容' },
+    { id: 'later', name: '稍后学习', desc: '先存起来，空闲再看' },
+  ];
+  return `// Generated legacy dataset; the application uses src/data/feed.js.
+export const LOCAL_DEMO_VIDEOS = ${JSON.stringify(feedItems.map(item => item.videoUrl), null, 2)};
 
-// 根据设备类型选择视频路径
-export const LOCAL_DEMO_VIDEOS = [
-${feedItems.map(item => `  "/videos/${item.id}.mp4",`).join('\n')}
-];
+export const DEFAULT_SECTIONS = ${JSON.stringify(sections, null, 2)};
 
-export const DEFAULT_SECTIONS = [
-  { id: "default", name: "默认收藏", desc: "统一回看高价值内容" },
-  { id: "later", name: "稍后学习", desc: "先存起来，空闲再看" },
-];
-
-export const FEED_ITEMS = [
+export const FEED_ITEMS = ${JSON.stringify(feedItems, null, 2)};
 `;
-
-  for (const item of feedItems) {
-    js += `  {
-    id: "${item.id}",
-    category: "${item.category}",
-    title: "${item.title}",
-    author: "${item.author}",
-    likes: "${item.likes}",
-    time: "${item.time}",
-    videoUrl: LOCAL_DEMO_VIDEOS[${feedItems.indexOf(item)}],
-    coverTitle: ${JSON.stringify(item.coverTitle)},
-    bg: "${item.bg}",
-    accent: "${item.accent}",
-    avatar: "${item.avatar}",
-    ${item.tall ? 'tall: true,\n    ' : ''}tags: ${JSON.stringify(item.tags)},
-    ai: {
-      summary: ${JSON.stringify(item.ai.summary, null, 6).split('\n').map((line, i) => i === 0 ? line : '      ' + line).join('\n')},
-      audience: "${item.ai.audience}",
-      takeaway: "${item.ai.takeaway}",
-      timestamps: ${JSON.stringify(item.ai.timestamps, null, 6).split('\n').map((line, i) => i === 0 ? line : '      ' + line).join('\n')},
-      infographic: ${JSON.stringify(item.ai.infographic, null, 6).split('\n').map((line, i) => i === 0 ? line : '      ' + line).join('\n')},
-    },
-  },
-`;
-  }
-
-  js += `];
-`;
-
-  return js;
 }
 
 // ========== 导出功能 ==========
@@ -603,21 +572,21 @@ function showHelp() {
 ==========================
 
 使用方法:
-  node scripts/build-knowledge-base.js [命令]
+  node scripts/build-knowledge-base.cjs [命令]
 
 命令:
   --help          显示帮助信息
   --scan          扫描可用的视频缓存
-  --build         构建 feed-data.js
+  --build         构建旧版 src/feed-data.js（不修改主应用 src/data/feed.js）
   --export-all    导出所有视频知识库为 Markdown
   --video <id>    导出指定视频的知识库
   --info          显示缓存统计信息
 
 示例:
-  node scripts/build-knowledge-base.js --scan
-  node scripts/build-knowledge-base.js --build
-  node scripts/build-knowledge-base.js --video darwin
-  node scripts/build-knowledge-base.js --export-all
+  node scripts/build-knowledge-base.cjs --scan
+  node scripts/build-knowledge-base.cjs --build
+  node scripts/build-knowledge-base.cjs --video darwin
+  node scripts/build-knowledge-base.cjs --export-all
 
 视频 ID:
   darwin, codex, mars, academic, money, detective,

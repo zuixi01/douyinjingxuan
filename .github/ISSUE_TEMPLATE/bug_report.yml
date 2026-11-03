@@ -1,0 +1,32 @@
+name: Bug 报告 / Bug report
+description: 提供可复现的问题，帮助定位与修复。
+body:
+  - type: markdown
+    attributes:
+      value: 请勿粘贴密钥、个人知识库或完整环境变量。安全漏洞请先阅读 SECURITY.md。
+  - type: input
+    id: revision
+    attributes:
+      label: 版本或 commit
+      placeholder: git rev-parse --short HEAD
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、浏览器、Node/Python 版本，以及纯前端或启用后端模式。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从干净启动开始，说明操作步骤、预期结果和实际结果。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 错误信息或截图
+      description: 仅提供必要且脱敏的日志。

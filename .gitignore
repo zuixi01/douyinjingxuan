@@ -4,6 +4,7 @@ dist/
 
 .env
 .env.*
+!.env.example
 
 npm-debug.log*
 yarn-debug.log*
@@ -15,8 +16,26 @@ Thumbs.db
 
 .vscode/
 .idea/
-node_modules
-node_modules
-
 __pycache__/
 *.pyc
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+exports/
+
+# Local runtime databases and new media-processing outputs.
+# Ignore rules do not remove files already tracked in Git.
+backend/data/
+.local-data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+cache/audio/
+cache/transcripts/
+cache/mp3/*.mp3
+cache/batch_result.json
+public/videos/mobile/

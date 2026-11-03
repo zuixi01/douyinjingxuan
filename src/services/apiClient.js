@@ -1,9 +1,47 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const API_RETRY_COOLDOWN_MS = 30_000;
+const API_TIMEOUT_MS = 10_000;
+const HEALTH_TIMEOUT_MS = 3_000;
 
 let availabilityPromise = null;
 let lastKnownAvailable = null;
 let nextRetryAt = 0;
+
+export class ApiError extends Error {
+  constructor(message, { status = null, code = "request_failed" } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function fetchWithTimeout(url, options, timeoutMs, readResponse = (response) => response) {
+  const controller = new AbortController();
+  const externalSignal = options.signal;
+  let timedOut = false;
+  const abort = () => controller.abort();
+  if (externalSignal?.aborted) abort();
+  else externalSignal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return await readResponse(response);
+  } catch (error) {
+    if (timedOut) throw new ApiError("请求超时，请稍后重试", { code: "timeout" });
+    if (controller.signal.aborted) throw new ApiError("请求已取消", { code: "aborted" });
+    if (error instanceof ApiError) throw error;
+    if (error instanceof SyntaxError) throw new ApiError("服务返回的数据格式无效", { code: "invalid_response" });
+    throw new ApiError("无法连接服务，请检查网络或后端状态", { code: "network" });
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abort);
+  }
+}
 
 async function parseResponse(response) {
   const contentType = response.headers.get("content-type") ?? "";
@@ -11,21 +49,23 @@ async function parseResponse(response) {
 
   if (!response.ok) {
     const detail = typeof data === "object" && data ? data.detail : data;
-    throw new Error(detail || `请求失败: ${response.status}`);
+    const message = typeof detail === "string" ? detail : Array.isArray(detail)
+      ? detail.map((entry) => entry.msg ?? "请求参数无效").join("；")
+      : "";
+    throw new ApiError(message || `请求失败: ${response.status}`, { status: response.status, code: "http" });
   }
 
   return data;
 }
 
 export async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return fetchWithTimeout(`${API_BASE_URL}${path}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers ?? {}),
     },
-    ...options,
-  });
-  return parseResponse(response);
+  }, API_TIMEOUT_MS, parseResponse);
 }
 
 export async function isApiReachable() {
@@ -40,7 +80,7 @@ export async function isApiReachable() {
     return availabilityPromise;
   }
 
-  availabilityPromise = fetch(`${API_BASE_URL}/api/health`)
+  availabilityPromise = fetchWithTimeout(`${API_BASE_URL}/api/health`, {}, HEALTH_TIMEOUT_MS)
     .then((response) => {
       const ok = response.ok;
       lastKnownAvailable = ok;

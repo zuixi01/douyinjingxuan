@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -13,11 +14,17 @@ from .schemas import CardCreate, PreviewRequest, SearchParams, SectionCreate, Te
 BASE_DIR = Path(__file__).resolve().parent
 repository = build_repository(BASE_DIR)
 
+
+def configured_cors_origins() -> list[str]:
+    default_origins = "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173"
+    return [origin.strip() for origin in os.getenv("KNOWLEDGE_CORS_ORIGINS", default_origins).split(",") if origin.strip()]
+
+
 app = FastAPI(title="Douyin AI Knowledge API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=configured_cors_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

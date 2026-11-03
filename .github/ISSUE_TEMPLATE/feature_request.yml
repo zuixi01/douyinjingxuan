@@ -1,0 +1,17 @@
+name: 功能建议 / Feature request
+description: 描述具体问题、使用场景和期望行为。
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 谁会遇到这个问题？当前操作有什么限制？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议行为与验收方式
+      description: 描述可观察的结果，也可列出已经考虑的替代方案。
+    validations:
+      required: true

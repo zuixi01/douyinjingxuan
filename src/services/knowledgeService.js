@@ -1,12 +1,16 @@
 import { buildSavedRecord, normalizeAiCardData } from "../features/knowledge/model";
-import { apiRequest, isApiReachable, markApiUnavailable } from "./apiClient";
+import { apiRequest, isApiReachable } from "./apiClient";
+
+let storageModePromise = null;
 
 function wait(ms = 120) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function canUseApi() {
-  return isApiReachable();
+  // A session keeps one storage source; reconnecting must not silently replace local work.
+  storageModePromise ??= isApiReachable().then((reachable) => reachable ? "remote" : "local");
+  return (await storageModePromise) === "remote";
 }
 
 function createSectionLocal(sections, name) {
@@ -154,20 +158,15 @@ export const knowledgeService = {
       return { sections: fallbackSections, savedItems: fallbackSavedItems, source: "local" };
     }
 
-    try {
-      const [sectionsResponse, cardsResponse] = await Promise.all([
-        apiRequest("/api/sections"),
-        apiRequest("/api/cards"),
-      ]);
-      return {
-        sections: sectionsResponse.sections,
-        savedItems: cardsResponse.cards,
-        source: "remote",
-      };
-    } catch {
-      markApiUnavailable();
-      return { sections: fallbackSections, savedItems: fallbackSavedItems, source: "local" };
-    }
+    const [sectionsResponse, cardsResponse] = await Promise.all([
+      apiRequest("/api/sections"),
+      apiRequest("/api/cards"),
+    ]);
+    return {
+      sections: sectionsResponse.sections,
+      savedItems: cardsResponse.cards,
+      source: "remote",
+    };
   },
 
   async createSection(sections, name) {
@@ -176,15 +175,10 @@ export const knowledgeService = {
       return createSectionLocal(sections, name);
     }
 
-    try {
-      return await apiRequest("/api/sections", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      });
-    } catch {
-      markApiUnavailable();
-      return createSectionLocal(sections, name);
-    }
+    return apiRequest("/api/sections", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
   },
 
   async saveItem(savedItems, item, sectionId, sections) {
@@ -193,34 +187,29 @@ export const knowledgeService = {
       return saveItemLocal(savedItems, item, sectionId, sections);
     }
 
-    try {
-      const section = sections.find((entry) => entry.id === sectionId);
-      const record = buildSavedRecord(item, section ?? { id: sectionId, name: "", desc: "" });
-      return await apiRequest("/api/cards", {
-        method: "POST",
-        body: JSON.stringify({
-          itemId: record.itemId,
-          sectionId: record.sectionId,
-          title: record.title,
-          author: record.author,
-          time: record.time,
-          bg: record.bg,
-          coverTitle: record.coverTitle,
-          category: record.category,
-          tags: record.tags,
-          ai: record.ai,
-          sourceType: record.sourceType,
-          sourceRef: record.sourceRef,
-          cardVariant: record.cardVariant,
-          summaryStatus: record.summaryStatus,
-          excerpt: record.excerpt,
-          savedAt: record.savedAt,
-        }),
-      });
-    } catch {
-      markApiUnavailable();
-      return saveItemLocal(savedItems, item, sectionId, sections);
-    }
+    const section = sections.find((entry) => entry.id === sectionId);
+    const record = buildSavedRecord(item, section ?? { id: sectionId, name: "", desc: "" });
+    return apiRequest("/api/cards", {
+      method: "POST",
+      body: JSON.stringify({
+        itemId: record.itemId,
+        sectionId: record.sectionId,
+        title: record.title,
+        author: record.author,
+        time: record.time,
+        bg: record.bg,
+        coverTitle: record.coverTitle,
+        category: record.category,
+        tags: record.tags,
+        ai: record.ai,
+        sourceType: record.sourceType,
+        sourceRef: record.sourceRef,
+        cardVariant: record.cardVariant,
+        summaryStatus: record.summaryStatus,
+        excerpt: record.excerpt,
+        savedAt: record.savedAt,
+      }),
+    });
   },
 
   async search(savedItems, { query, sectionId, tag, mode, sortBy }) {
@@ -234,15 +223,10 @@ export const knowledgeService = {
       return removeItemLocal(savedItems, itemId, sectionId);
     }
 
-    try {
-      const response = await apiRequest(`/api/cards/${itemId}?section_id=${encodeURIComponent(sectionId)}`, {
-        method: "DELETE",
-      });
-      return response.savedItems;
-    } catch {
-      markApiUnavailable();
-      return removeItemLocal(savedItems, itemId, sectionId);
-    }
+    const response = await apiRequest(`/api/cards/${encodeURIComponent(itemId)}?section_id=${encodeURIComponent(sectionId)}`, {
+      method: "DELETE",
+    });
+    return response.savedItems;
   },
 
   async createTextCard(savedItems, sections, payload) {
@@ -251,15 +235,10 @@ export const knowledgeService = {
       return createTextCardLocal(savedItems, sections, payload);
     }
 
-    try {
-      return await apiRequest("/api/intake/text", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-    } catch {
-      markApiUnavailable();
-      return createTextCardLocal(savedItems, sections, payload);
-    }
+    return apiRequest("/api/intake/text", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   exportMarkdown(savedItems, sections) {

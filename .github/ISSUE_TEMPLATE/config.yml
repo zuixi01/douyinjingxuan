@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 使用与贡献指南 / Contributing
+    url: https://github.com/zuixi01/douyinjingxuan/blob/main/CONTRIBUTING.md
+    about: 提交问题前先查看运行方式、项目范围与贡献流程。
