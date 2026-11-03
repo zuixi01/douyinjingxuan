@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · [Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Assets](docs/ASSETS.md)
 
-An independent, unofficial prototype for browsing videos, reading prepared notes, and collecting searchable knowledge cards. The frontend uses React 18, Vite, Tailwind CSS, and Framer Motion. An optional FastAPI backend persists collections in JSON or SQLite via SQLAlchemy.
+An independent, unofficial prototype for browsing videos, reading prepared notes, and collecting searchable knowledge cards. The frontend uses React 19, Vite 8, Tailwind CSS, Framer Motion 14, and Lucide 1. An optional FastAPI backend persists collections in JSON or SQLite via SQLAlchemy.
 
 This project is not affiliated with Douyin, ByteDance, or the featured creators. The repository is public, but the application is an experimental local demo with no stable API or production readiness commitment.
 
@@ -10,7 +10,7 @@ This project is not affiliated with Douyin, ByteDance, or the featured creators.
 
 ## Run the frontend
 
-Requires Git, Node.js **22.x (22.13+) or 24+**, and npm, matching `package.json` engines. A full clone includes large tracked media files:
+Requires Git, Node.js **22.x (22.22.2+) or 24.x (24.15.0+) or 26+**, and npm, matching `package.json` engines. A full clone includes large tracked media files:
 
 ```bash
 git clone https://github.com/zuixi01/douyinjingxuan.git
