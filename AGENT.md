@@ -4,9 +4,9 @@
 
 ## 真实入口与技术栈
 
-- 前端：React 18、Vite、Tailwind CSS、Framer Motion、Lucide。
+- 前端：React 19、Vite 8、Tailwind CSS、Framer Motion 14、Lucide 1。
 - 后端：FastAPI、Pydantic、SQLAlchemy；JSON 默认，数据库可选。
-- 验证：Vitest / Testing Library 与 pytest。
+- 验证：Vitest / Testing Library / jsdom 30 与 pytest。
 - `src/main.jsx` 加载 `src/app/App.jsx`；当前视频和预置笔记数据来自 `src/data/feed.js`。
 - 知识库界面与规则在 `src/features/knowledge/`，数据访问在 `src/services/`，浏览器存储在 `src/lib/storage.js`。
 - `article-drafts.js` 直接导入 `cache/mp3/* - 解析稿.md`，仅由历史根页面引用；当前 `src/main.jsx` 主入口不依赖它或 `cache/`。
@@ -27,7 +27,7 @@
 
 ## 常用命令
 
-前端需要 Node.js 22.x（至少 22.13）或 24+：
+前端需要 Node.js 22.x（至少 22.22.2）、24.x（至少 24.15.0）或 26+：
 
 ```bash
 npm ci
